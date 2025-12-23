@@ -1,0 +1,51 @@
+{
+  "name": "@supertools-ai/core",
+  "version": "0.1.0",
+  "description": "Programmatic tool calling for LLMs - 10x faster, 90% cheaper",
+  "type": "module",
+  "main": "./dist/index.js",
+  "module": "./dist/index.mjs",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "require": "./dist/index.js"
+    }
+  },
+  "files": ["dist"],
+  "scripts": {
+    "build": "bun build src/index.ts --outdir dist --target node --format esm && tsc --emitDeclarationOnly",
+    "build-template": "bun run e2b/build-template.ts",
+    "dev": "bun --watch src/index.ts",
+    "test": "bun test",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@e2b/code-interpreter": "^1.0.0",
+    "zod": "^4.2.1"
+  },
+  "devDependencies": {
+    "@types/bun": "latest",
+    "@types/node": "^20.10.0",
+    "typescript": "^5.3.0"
+  },
+  "keywords": [
+    "supertools",
+    "llm",
+    "tool-calling",
+    "programmatic",
+    "code-execution",
+    "e2b",
+    "sandbox",
+    "anthropic",
+    "openai",
+    "ai",
+    "agents"
+  ],
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/bxxf/supertools"
+  }
+}
