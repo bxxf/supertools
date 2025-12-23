@@ -147,7 +147,7 @@ The benchmark compares three approaches on the same model (Claude Sonnet 4.5):
 - **Anthropic Beta**: Anthropic's `code_execution` beta feature
 - **Supertools**: Code generation with E2B sandbox execution
 
-> **Note on Anthropic Beta results:** Despite setting `allowed_callers: ["code_execution_20250825"]` on tools, the model still uses regular `tool_use` blocks alongside code_execution - it doesn't call tools programmatically from within the generated code. This means we pay for both overheads: code_execution sandbox + regular tool round-trips. The ~4x token increase comes from Python code generation + execution results being included in responses. We welcome corrections if we're missing something in the setup.
+> **Note on Anthropic Beta results:** While the `allowed_callers` feature works (tools are called from within the Python code), each tool call still requires a full API round-trip. For N tool calls, you need N+1 API requests - the code execution pauses, returns to your server, you provide the result, and it continues. The only savings are that tool results don't inflate Claude's context. In contrast, Supertools makes 1 API call total - the generated code runs in the sandbox and calls tools via WebSocket without additional API round-trips. This explains the significant performance difference.
 
 > **Note:** Supertools returns raw JSON data, not natural language. The LLM generates code but never sees the execution results. This is ideal for data pipelines and batch operations, but for chatbots needing conversational responses, consider traditional tool calling or add a summarization step.
 

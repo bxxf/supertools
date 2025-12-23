@@ -27,7 +27,7 @@
     <text x="28" y="70" fill="#22c55e" font-family="monospace" font-size="11">await</text>
     <text x="68" y="70" fill="#60a5fa" font-family="monospace" font-size="11">queryDb</text>
     <text x="124" y="70" fill="#a1a1aa" font-family="monospace" font-size="11">({</text>
-    <text x="28" y="90" fill="#a1a1aa" font-family="monospace" font-size="11">sql:</text>
+    <text x="28" y="90" fill="#a1a1aa" font-family="monospace" font-size="11">sql: </text>
     <text x="56" y="90" fill="#fbbf24" font-family="monospace" font-size="11">"SELECT *"</text>
     <text x="16" y="110" fill="#a1a1aa" font-family="monospace" font-size="11">  })</text>
   </g>

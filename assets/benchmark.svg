@@ -34,33 +34,33 @@
     <!-- Row 1: Simple -->
     <g transform="translate(0, 100)">
       <text x="0" y="0" fill="#e4e4e7" font-size="12">Simple (1 tool)</text>
-      <text x="200" y="0" fill="#a1a1aa" font-size="12"> 6037ms  2c  1387tok</text>
-      <text x="400" y="0" fill="#a1a1aa" font-size="12">12078ms  2c  7189tok</text>
-      <text x="620" y="0" fill="#a1a1aa" font-size="12"> 3247ms  1c   561tok</text>
+      <text x="200" y="0" fill="#a1a1aa" font-size="12"> 5924ms  2c  1387tok</text>
+      <text x="400" y="0" fill="#a1a1aa" font-size="12">12176ms  2c  7188tok</text>
+      <text x="620" y="0" fill="#a1a1aa" font-size="12"> 3147ms  1c   561tok</text>
     </g>
 
     <!-- Row 2: Parallel -->
     <g transform="translate(0, 128)">
       <text x="0" y="0" fill="#e4e4e7" font-size="12">Parallel (2 tools)</text>
-      <text x="200" y="0" fill="#a1a1aa" font-size="12"> 7888ms  2c  1751tok</text>
-      <text x="400" y="0" fill="#a1a1aa" font-size="12">14205ms  2c  7769tok</text>
-      <text x="620" y="0" fill="#a1a1aa" font-size="12"> 2886ms  1c   580tok</text>
+      <text x="200" y="0" fill="#a1a1aa" font-size="12"> 7663ms  2c  1742tok</text>
+      <text x="400" y="0" fill="#a1a1aa" font-size="12">13553ms  2c  7711tok</text>
+      <text x="620" y="0" fill="#a1a1aa" font-size="12"> 2964ms  1c   580tok</text>
     </g>
 
     <!-- Row 3: Sequential -->
     <g transform="translate(0, 156)">
       <text x="0" y="0" fill="#e4e4e7" font-size="12">Sequential (dependent)</text>
-      <text x="200" y="0" fill="#a1a1aa" font-size="12"> 8977ms  3c  2406tok</text>
-      <text x="400" y="0" fill="#a1a1aa" font-size="12">17450ms  3c  7838tok</text>
-      <text x="620" y="0" fill="#a1a1aa" font-size="12"> 3321ms  1c   608tok</text>
+      <text x="200" y="0" fill="#a1a1aa" font-size="12"> 8647ms  3c  2408tok</text>
+      <text x="400" y="0" fill="#a1a1aa" font-size="12">16996ms  3c  7921tok</text>
+      <text x="620" y="0" fill="#a1a1aa" font-size="12"> 3283ms  1c   608tok</text>
     </g>
 
     <!-- Row 4: Complex -->
     <g transform="translate(0, 184)">
       <text x="0" y="0" fill="#e4e4e7" font-size="12">Complex (logic + agg)</text>
-      <text x="200" y="0" fill="#a1a1aa" font-size="12">11302ms  3c  2771tok</text>
-      <text x="400" y="0" fill="#a1a1aa" font-size="12">19867ms  3c  8136tok</text>
-      <text x="620" y="0" fill="#a1a1aa" font-size="12"> 4180ms  1c   677tok</text>
+      <text x="200" y="0" fill="#a1a1aa" font-size="12"> 9984ms  3c  2766tok</text>
+      <text x="400" y="0" fill="#a1a1aa" font-size="12">18446ms  3c  8078tok</text>
+      <text x="620" y="0" fill="#a1a1aa" font-size="12"> 4204ms  1c   678tok</text>
     </g>
 
     <!-- Separator -->
@@ -69,9 +69,9 @@
     <!-- Total row -->
     <g transform="translate(0, 232)">
       <text x="0" y="0" fill="#ffffff" font-size="12" font-weight="600">TOTAL</text>
-      <text x="200" y="0" fill="#f87171" font-size="12" font-weight="500">34.2s  10c  8315tok</text>
-      <text x="400" y="0" fill="#fbbf24" font-size="12" font-weight="500">63.6s  10c 30932tok</text>
-      <text x="620" y="0" fill="#4ade80" font-size="12" font-weight="500">13.6s   4c  2426tok</text>
+      <text x="200" y="0" fill="#f87171" font-size="12" font-weight="500">32.2s  10c  8303tok</text>
+      <text x="400" y="0" fill="#fbbf24" font-size="12" font-weight="500">61.2s  10c 30898tok</text>
+      <text x="620" y="0" fill="#4ade80" font-size="12" font-weight="500">13.6s   4c  2427tok</text>
     </g>
 
     <!-- Results section -->
@@ -82,7 +82,7 @@
 
     <g transform="translate(0, 316)">
       <text x="0" y="0" fill="#888888" font-size="12">Time</text>
-      <text x="100" y="0" fill="#4ade80" font-size="12" font-weight="600">2.5x faster</text>
+      <text x="100" y="0" fill="#4ade80" font-size="12" font-weight="600">2.4x faster</text>
     </g>
 
     <g transform="translate(220, 316)">
@@ -101,17 +101,12 @@
 
     <g transform="translate(0, 400)">
       <text x="0" y="0" fill="#888888" font-size="12">Time</text>
-      <text x="100" y="0" fill="#4ade80" font-size="12" font-weight="600">4.7x faster</text>
+      <text x="100" y="0" fill="#4ade80" font-size="12" font-weight="600">4.5x faster</text>
     </g>
 
     <g transform="translate(220, 400)">
       <text x="0" y="0" fill="#888888" font-size="12">Tokens</text>
       <text x="80" y="0" fill="#4ade80" font-size="12" font-weight="600">92% fewer</text>
     </g>
-
-    <!-- Footnote -->
-    <line x1="0" y1="432" x2="852" y2="432" stroke="#333333" stroke-width="1"/>
-    <text y="456" fill="#666666" font-size="10">* Anthropic Beta code_execution showed unexpectedly high token usage and latency.</text>
-    <text y="470" fill="#666666" font-size="10">  This may be due to implementation issues or the feature being in beta.</text>
   </g>
 </svg>

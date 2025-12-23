@@ -1,10 +1,13 @@
 /**
  * Supertools Benchmark
  *
- * Compares three approaches:
- * 1. Native Anthropic tool calling (multiple LLM round-trips)
- * 2. Anthropic Beta Code Execution (their built-in sandbox)
- * 3. Supertools (E2B sandbox)
+ * Compares three approaches to tool calling:
+ *
+ * | Approach        | API Calls | How it works                                    |
+ * |-----------------|-----------|------------------------------------------------|
+ * | Native          | N+1       | Claude thinks between each tool call            |
+ * | Anthropic Beta  | N+1       | Code pauses for each tool result                |
+ * | Supertools      | 1         | Tools called via WebSocket in sandbox           |
  *
  * Run: bun run examples/benchmark/index.ts
  */
@@ -13,42 +16,96 @@ import Anthropic from "@anthropic-ai/sdk";
 import { Sandbox } from "@e2b/code-interpreter";
 import { supertools, defineTool, z } from "@supertools-ai/core";
 
-// =============================================================================
-// Simulated Database (shared by both approaches)
-// =============================================================================
+// -----------------------------------------------------------------------------
+// Configuration
+// -----------------------------------------------------------------------------
 
-const users = [
-  { id: 1, name: "Alice", role: "admin" },
-  { id: 2, name: "Bob", role: "user" },
-  { id: 3, name: "Charlie", role: "user" },
+const MODEL = "claude-sonnet-4-5-20250929";
+const MAX_TOKENS = 1024;
+
+const BENCHMARKS = [
+  { name: "Simple (1 tool)", prompt: "Get all admin users" },
+  { name: "Parallel (2 tools)", prompt: "Get all users and all orders" },
+  { name: "Sequential (dependent)", prompt: "Get admin users, then get orders for each admin" },
+  { name: "Complex (logic + agg)", prompt: "Get all users, find admins, get their orders, calculate total revenue per admin" },
 ];
 
-const orders = [
-  { id: 101, userId: 1, total: 150 },
-  { id: 102, userId: 2, total: 75 },
-  { id: 103, userId: 1, total: 200 },
-  { id: 104, userId: 3, total: 50 },
-  { id: 105, userId: 1, total: 175 },
-];
+// -----------------------------------------------------------------------------
+// Mock Database
+// -----------------------------------------------------------------------------
 
-// =============================================================================
-// Native Anthropic Tool Calling
-// =============================================================================
+const DB = {
+  users: [
+    { id: 1, name: "Alice", role: "admin" },
+    { id: 2, name: "Bob", role: "user" },
+    { id: 3, name: "Charlie", role: "user" },
+  ],
+  orders: [
+    { id: 101, userId: 1, total: 150 },
+    { id: 102, userId: 2, total: 75 },
+    { id: 103, userId: 1, total: 200 },
+    { id: 104, userId: 3, total: 50 },
+    { id: 105, userId: 1, total: 175 },
+  ],
+};
 
-async function runNative(client: Anthropic, prompt: string) {
-  const metrics = { llmCalls: 0, toolCalls: 0, inputTokens: 0, outputTokens: 0 };
-  const startTime = Date.now();
+// -----------------------------------------------------------------------------
+// Types
+// -----------------------------------------------------------------------------
 
-  // Tool definitions for Anthropic
+interface Metrics {
+  timeMs: number;
+  apiCalls: number;
+  toolCalls: number;
+  tokens: number;
+}
+
+interface Result {
+  native: Metrics;
+  anthropicBeta: Metrics;
+  supertools: Metrics;
+}
+
+// -----------------------------------------------------------------------------
+// Shared Tool Logic
+// -----------------------------------------------------------------------------
+
+function executeGetUsers(role?: string) {
+  return role ? DB.users.filter((u) => u.role === role) : DB.users;
+}
+
+function executeGetOrders(userId?: number) {
+  return userId ? DB.orders.filter((o) => o.userId === userId) : DB.orders;
+}
+
+function executeTool(name: string, input: Record<string, unknown>): unknown {
+  switch (name) {
+    case "getUsers":
+      return executeGetUsers(input.role as string | undefined);
+    case "getOrders":
+      return executeGetOrders(input.userId as number | undefined);
+    default:
+      throw new Error(`Unknown tool: ${name}`);
+  }
+}
+
+// -----------------------------------------------------------------------------
+// Native Tool Calling
+// -----------------------------------------------------------------------------
+
+async function runNative(client: Anthropic, prompt: string): Promise<Metrics> {
+  const start = Date.now();
+  let apiCalls = 0;
+  let toolCalls = 0;
+  let tokens = 0;
+
   const tools: Anthropic.Tool[] = [
     {
       name: "getUsers",
       description: "Get users, optionally filtered by role",
       input_schema: {
         type: "object",
-        properties: {
-          role: { type: "string", enum: ["admin", "user"] },
-        },
+        properties: { role: { type: "string", enum: ["admin", "user"] } },
       },
     },
     {
@@ -56,461 +113,284 @@ async function runNative(client: Anthropic, prompt: string) {
       description: "Get orders, optionally filtered by userId",
       input_schema: {
         type: "object",
-        properties: {
-          userId: { type: "number" },
-        },
+        properties: { userId: { type: "number" } },
       },
     },
   ];
 
-  // Execute a tool locally
-  function executeTool(name: string, args: Record<string, unknown>): unknown {
-    metrics.toolCalls++;
-    if (name === "getUsers") {
-      const role = args.role as string | undefined;
-      return role ? users.filter((u) => u.role === role) : users;
-    }
-    if (name === "getOrders") {
-      const userId = args.userId as number | undefined;
-      return userId ? orders.filter((o) => o.userId === userId) : orders;
-    }
-    throw new Error(`Unknown tool: ${name}`);
-  }
-
-  // Standard agentic loop
   const messages: Anthropic.MessageParam[] = [{ role: "user", content: prompt }];
 
   while (true) {
-    metrics.llmCalls++;
-    const response = await client.messages.create({
-      model: "claude-sonnet-4-5-20250929",
-      max_tokens: 1024,
+    apiCalls++;
+    const res = await client.messages.create({
+      model: MODEL,
+      max_tokens: MAX_TOKENS,
       tools,
       messages,
     });
 
-    metrics.inputTokens += response.usage.input_tokens;
-    metrics.outputTokens += response.usage.output_tokens;
+    tokens += res.usage.input_tokens + res.usage.output_tokens;
 
-    // If done, return result
-    if (response.stop_reason === "end_turn") {
-      const text = response.content
-        .filter((b): b is Anthropic.TextBlock => b.type === "text")
-        .map((b) => b.text)
-        .join("");
-      return { result: text, metrics, timeMs: Date.now() - startTime };
-    }
+    if (res.stop_reason === "end_turn") break;
 
-    // Process tool calls
-    const toolUseBlocks = response.content.filter(
+    const toolBlocks = res.content.filter(
       (b): b is Anthropic.ToolUseBlock => b.type === "tool_use"
     );
 
-    if (toolUseBlocks.length === 0) {
-      throw new Error("Unexpected: no tool_use blocks and not end_turn");
-    }
+    if (!toolBlocks.length) break;
 
-    // Add assistant message with tool calls
-    messages.push({ role: "assistant", content: response.content });
-
-    // Execute tools and add results
-    const toolResults: Anthropic.ToolResultBlockParam[] = toolUseBlocks.map((block) => ({
-      type: "tool_result",
-      tool_use_id: block.id,
-      content: JSON.stringify(executeTool(block.name, block.input as Record<string, unknown>)),
-    }));
-
-    messages.push({ role: "user", content: toolResults });
+    messages.push({ role: "assistant", content: res.content });
+    messages.push({
+      role: "user",
+      content: toolBlocks.map((b) => {
+        toolCalls++;
+        return {
+          type: "tool_result" as const,
+          tool_use_id: b.id,
+          content: JSON.stringify(executeTool(b.name, b.input as Record<string, unknown>)),
+        };
+      }),
+    });
   }
+
+  return { timeMs: Date.now() - start, apiCalls, toolCalls, tokens };
 }
 
-// =============================================================================
-// Anthropic Beta Code Execution (their built-in sandbox)
-// =============================================================================
+// -----------------------------------------------------------------------------
+// Anthropic Beta (code_execution)
+// -----------------------------------------------------------------------------
 
-async function runAnthropicBeta(client: Anthropic, prompt: string) {
-  const metrics = { llmCalls: 0, toolCalls: 0, inputTokens: 0, outputTokens: 0 };
-  const startTime = Date.now();
+async function runAnthropicBeta(client: Anthropic, prompt: string): Promise<Metrics> {
+  const start = Date.now();
+  let apiCalls = 0;
+  let toolCalls = 0;
+  let tokens = 0;
 
-  // Tool definitions with allowed_callers for code execution
-  // Using the advanced-tool-use beta which enables code_execution to call tools directly
   const tools: Anthropic.Beta.BetaTool[] = [
-    {
-      type: "code_execution_20250825",
-      name: "code_execution",
-    } as unknown as Anthropic.Beta.BetaTool,
+    { type: "code_execution_20250825", name: "code_execution" } as Anthropic.Beta.BetaTool,
     {
       name: "getUsers",
-      description: "Get users, optionally filtered by role. Returns array of {id, name, role}.",
+      description: "Get users, optionally filtered by role. Returns [{id, name, role}].",
       input_schema: {
         type: "object" as const,
-        properties: {
-          role: { type: "string", enum: ["admin", "user"] },
-        },
+        properties: { role: { type: "string", enum: ["admin", "user"] } },
       },
-      // Allow code_execution to call this tool directly
       allowed_callers: ["code_execution_20250825"],
-    } as unknown as Anthropic.Beta.BetaTool,
+    } as Anthropic.Beta.BetaTool,
     {
       name: "getOrders",
-      description: "Get orders, optionally filtered by userId. Returns array of {id, userId, total}.",
+      description: "Get orders, optionally filtered by userId. Returns [{id, userId, total}].",
       input_schema: {
         type: "object" as const,
-        properties: {
-          userId: { type: "number" },
-        },
+        properties: { userId: { type: "number" } },
       },
-      // Allow code_execution to call this tool directly
       allowed_callers: ["code_execution_20250825"],
-    } as unknown as Anthropic.Beta.BetaTool,
+    } as Anthropic.Beta.BetaTool,
   ];
 
-  // Execute a tool locally
-  function executeTool(name: string, args: Record<string, unknown>): unknown {
-    metrics.toolCalls++;
-    if (name === "getUsers") {
-      const role = args.role as string | undefined;
-      return role ? users.filter((u) => u.role === role) : users;
-    }
-    if (name === "getOrders") {
-      const userId = args.userId as number | undefined;
-      return userId ? orders.filter((o) => o.userId === userId) : orders;
-    }
-    throw new Error(`Unknown tool: ${name}`);
-  }
-
-  // Agentic loop for beta API with container tracking
   const messages: Anthropic.Beta.BetaMessageParam[] = [{ role: "user", content: prompt }];
   let container: string | undefined;
 
   while (true) {
-    metrics.llmCalls++;
+    apiCalls++;
 
-    // Build request params, include container if we have one
-    const requestParams: Record<string, unknown> = {
-      model: "claude-sonnet-4-5-20250929",
+    const res = (await client.beta.messages.create({
+      model: MODEL,
+      max_tokens: MAX_TOKENS,
       betas: ["advanced-tool-use-2025-11-20"],
-      max_tokens: 8096,
       tools,
       messages,
-    };
+      ...(container && { container }),
+    } as Anthropic.Beta.MessageCreateParams)) as Anthropic.Beta.BetaMessage;
 
-    if (container) {
-      requestParams.container = container;
-    }
+    tokens += res.usage.input_tokens + res.usage.output_tokens;
+    container = (res as unknown as { container?: { id: string } }).container?.id;
 
-    const response = await client.beta.messages.create(requestParams as unknown as Anthropic.Beta.MessageCreateParams) as Anthropic.Beta.BetaMessage;
+    if (res.stop_reason === "end_turn") break;
 
-    metrics.inputTokens += response.usage.input_tokens;
-    metrics.outputTokens += response.usage.output_tokens;
-
-    // Extract container id from response if present
-    const responseAny = response as unknown as { container?: { id: string } };
-    if (responseAny.container?.id) {
-      container = responseAny.container.id;
-    }
-
-    // If done, return result
-    if (response.stop_reason === "end_turn") {
-      const text = response.content
-        .filter((b): b is Anthropic.Beta.BetaTextBlock => b.type === "text")
-        .map((b) => b.text)
-        .join("");
-      return { result: text, metrics, timeMs: Date.now() - startTime };
-    }
-
-    // Check for tool use blocks (regular tools called by code execution)
-    const toolUseBlocks = response.content.filter(
+    const toolBlocks = res.content.filter(
       (b): b is Anthropic.Beta.BetaToolUseBlock => b.type === "tool_use"
     );
 
-    if (toolUseBlocks.length === 0 && response.stop_reason !== "tool_use") {
-      // No tool calls and not waiting for tools - might be done
-      const text = response.content
-        .filter((b): b is Anthropic.Beta.BetaTextBlock => b.type === "text")
-        .map((b) => b.text)
-        .join("");
-      return { result: text, metrics, timeMs: Date.now() - startTime };
-    }
+    if (!toolBlocks.length && res.stop_reason !== "tool_use") break;
 
-    // Add assistant message
-    messages.push({ role: "assistant", content: response.content as Anthropic.Beta.BetaContentBlock[] });
+    messages.push({ role: "assistant", content: res.content as Anthropic.Beta.BetaContentBlock[] });
 
-    // Execute tools and add results
-    if (toolUseBlocks.length > 0) {
-      const toolResults: Anthropic.Beta.BetaToolResultBlockParam[] = toolUseBlocks.map((block) => ({
-        type: "tool_result" as const,
-        tool_use_id: block.id,
-        content: JSON.stringify(executeTool(block.name, block.input as Record<string, unknown>)),
-      }));
-      messages.push({ role: "user", content: toolResults });
+    if (toolBlocks.length) {
+      messages.push({
+        role: "user",
+        content: toolBlocks.map((b) => {
+          toolCalls++;
+          return {
+            type: "tool_result" as const,
+            tool_use_id: b.id,
+            content: JSON.stringify(executeTool(b.name, b.input as Record<string, unknown>)),
+          };
+        }),
+      });
     }
   }
+
+  return { timeMs: Date.now() - start, apiCalls, toolCalls, tokens };
 }
 
-// =============================================================================
-// Programmatic Execution (Supertools)
-// =============================================================================
+// -----------------------------------------------------------------------------
+// Supertools
+// -----------------------------------------------------------------------------
 
-async function runProgrammatic(client: Anthropic, sandbox: Sandbox, prompt: string) {
-  const metrics = { llmCalls: 0, toolCalls: 0, inputTokens: 0, outputTokens: 0 };
-  const startTime = Date.now();
+async function runSupertools(client: Anthropic, sandbox: Sandbox, prompt: string): Promise<Metrics> {
+  const start = Date.now();
+  let apiCalls = 0;
+  let toolCalls = 0;
+  let tokens = 0;
 
-  // Wrap client to intercept and track token usage
   const trackedClient = {
     messages: {
       create: async (params: Anthropic.MessageCreateParams) => {
-        metrics.llmCalls++;
-        const response = await client.messages.create(params) as Anthropic.Message;
-        metrics.inputTokens += response.usage.input_tokens;
-        metrics.outputTokens += response.usage.output_tokens;
-        return response;
+        apiCalls++;
+        const res = (await client.messages.create(params)) as Anthropic.Message;
+        tokens += res.usage.input_tokens + res.usage.output_tokens;
+        return res;
       },
     },
   } as Anthropic;
 
-  // Tool definitions for supertools
   const tools = [
     defineTool({
       name: "getUsers",
       description: "Get users, optionally filtered by role",
-      parameters: z.object({
-        role: z.enum(["admin", "user"]).optional(),
-      }),
+      parameters: z.object({ role: z.enum(["admin", "user"]).optional() }),
       execute: async ({ role }) => {
-        metrics.toolCalls++;
-        return role ? users.filter((u) => u.role === role) : users;
+        toolCalls++;
+        return executeGetUsers(role);
       },
     }),
     defineTool({
       name: "getOrders",
       description: "Get orders, optionally filtered by userId",
-      parameters: z.object({
-        userId: z.number().optional(),
-      }),
+      parameters: z.object({ userId: z.number().optional() }),
       execute: async ({ userId }) => {
-        metrics.toolCalls++;
-        return userId ? orders.filter((o) => o.userId === userId) : orders;
+        toolCalls++;
+        return executeGetOrders(userId);
       },
     }),
   ];
 
-  const wrappedClient = supertools(trackedClient, { tools, sandbox });
+  const wrapped = supertools(trackedClient, { tools, sandbox });
 
-  const response = await wrappedClient.messages.create({
-    model: "claude-sonnet-4-5-20250929",
-    max_tokens: 1024,
+  await wrapped.messages.create({
+    model: MODEL,
+    max_tokens: MAX_TOKENS,
     messages: [{ role: "user", content: prompt }],
   });
 
-  const text = response.content
-    .filter((b): b is Anthropic.TextBlock => b.type === "text")
-    .map((b) => b.text)
-    .join("");
-
-  return { result: text, metrics, timeMs: Date.now() - startTime };
+  return { timeMs: Date.now() - start, apiCalls, toolCalls, tokens };
 }
 
-// =============================================================================
+// -----------------------------------------------------------------------------
 // Benchmark Runner
-// =============================================================================
-
-interface MetricsResult {
-  timeMs: number;
-  llmCalls: number;
-  toolCalls: number;
-  tokens: number;
-}
-
-interface BenchmarkResult {
-  name: string;
-  prompt: string;
-  native: MetricsResult;
-  anthropicBeta: MetricsResult;
-  supertools: MetricsResult;
-}
+// -----------------------------------------------------------------------------
 
 async function runBenchmark(
   client: Anthropic,
   sandbox: Sandbox,
   name: string,
   prompt: string
-): Promise<BenchmarkResult> {
-  console.log(`\n${"=".repeat(70)}`);
-  console.log(`Benchmark: ${name}`);
-  console.log(`Prompt: "${prompt}"`);
-  console.log("=".repeat(70));
+): Promise<Result> {
+  console.log(`\n${"─".repeat(70)}`);
+  console.log(`${name}`);
+  console.log(`${"─".repeat(70)}`);
 
-  // Run native
-  console.log("\n[Native] Running...");
+  process.stdout.write("[Native]         ");
   const native = await runNative(client, prompt);
-  console.log(`[Native] Done in ${native.timeMs}ms`);
-  console.log(`[Native] LLM calls: ${native.metrics.llmCalls}, Tool calls: ${native.metrics.toolCalls}`);
-  console.log(`[Native] Tokens: ${native.metrics.inputTokens + native.metrics.outputTokens}`);
+  console.log(`${native.timeMs}ms | ${native.apiCalls} calls | ${native.tokens} tok`);
 
-  // Run Anthropic Beta Code Execution
-  console.log("\n[Anthropic Beta] Running...");
+  process.stdout.write("[Anthropic Beta] ");
   const anthropicBeta = await runAnthropicBeta(client, prompt);
-  console.log(`[Anthropic Beta] Done in ${anthropicBeta.timeMs}ms`);
-  console.log(`[Anthropic Beta] LLM calls: ${anthropicBeta.metrics.llmCalls}, Tool calls: ${anthropicBeta.metrics.toolCalls}`);
-  console.log(`[Anthropic Beta] Tokens: ${anthropicBeta.metrics.inputTokens + anthropicBeta.metrics.outputTokens}`);
+  console.log(`${anthropicBeta.timeMs}ms | ${anthropicBeta.apiCalls} calls | ${anthropicBeta.tokens} tok`);
 
-  // Run Supertools
-  console.log("\n[Supertools] Running...");
-  const supertoolsResult = await runProgrammatic(client, sandbox, prompt);
-  console.log(`[Supertools] Done in ${supertoolsResult.timeMs}ms`);
-  console.log(`[Supertools] LLM calls: ${supertoolsResult.metrics.llmCalls}, Tool calls: ${supertoolsResult.metrics.toolCalls}`);
-  console.log(`[Supertools] Tokens: ${supertoolsResult.metrics.inputTokens + supertoolsResult.metrics.outputTokens}`);
+  process.stdout.write("[Supertools]     ");
+  const supertoolsResult = await runSupertools(client, sandbox, prompt);
+  console.log(`${supertoolsResult.timeMs}ms | ${supertoolsResult.apiCalls} calls | ${supertoolsResult.tokens} tok`);
 
-  return {
-    name,
-    prompt,
+  return { native, anthropicBeta, supertools: supertoolsResult };
+}
+
+// -----------------------------------------------------------------------------
+// Summary
+// -----------------------------------------------------------------------------
+
+function printSummary(results: Result[]) {
+  const sum = (arr: Metrics[], key: keyof Metrics) => arr.reduce((a, b) => a + b[key], 0);
+
+  const totals = {
     native: {
-      timeMs: native.timeMs,
-      llmCalls: native.metrics.llmCalls,
-      toolCalls: native.metrics.toolCalls,
-      tokens: native.metrics.inputTokens + native.metrics.outputTokens,
+      timeMs: sum(results.map((r) => r.native), "timeMs"),
+      apiCalls: sum(results.map((r) => r.native), "apiCalls"),
+      tokens: sum(results.map((r) => r.native), "tokens"),
     },
     anthropicBeta: {
-      timeMs: anthropicBeta.timeMs,
-      llmCalls: anthropicBeta.metrics.llmCalls,
-      toolCalls: anthropicBeta.metrics.toolCalls,
-      tokens: anthropicBeta.metrics.inputTokens + anthropicBeta.metrics.outputTokens,
+      timeMs: sum(results.map((r) => r.anthropicBeta), "timeMs"),
+      apiCalls: sum(results.map((r) => r.anthropicBeta), "apiCalls"),
+      tokens: sum(results.map((r) => r.anthropicBeta), "tokens"),
     },
     supertools: {
-      timeMs: supertoolsResult.timeMs,
-      llmCalls: supertoolsResult.metrics.llmCalls,
-      toolCalls: supertoolsResult.metrics.toolCalls,
-      tokens: supertoolsResult.metrics.inputTokens + supertoolsResult.metrics.outputTokens,
+      timeMs: sum(results.map((r) => r.supertools), "timeMs"),
+      apiCalls: sum(results.map((r) => r.supertools), "apiCalls"),
+      tokens: sum(results.map((r) => r.supertools), "tokens"),
     },
   };
+
+  const speedup = (base: number, comp: number) =>
+    comp <= base ? `${(base / comp).toFixed(1)}x faster` : `${(comp / base).toFixed(1)}x slower`;
+
+  const pct = (base: number, comp: number) => {
+    const diff = ((base - comp) / base) * 100;
+    return diff >= 0 ? `${diff.toFixed(0)}% fewer` : `${Math.abs(diff).toFixed(0)}% more`;
+  };
+
+  console.log(`\n${"═".repeat(70)}`);
+  console.log("TOTALS");
+  console.log(`${"═".repeat(70)}`);
+  console.log(`Native:          ${totals.native.timeMs}ms | ${totals.native.apiCalls} calls | ${totals.native.tokens} tok`);
+  console.log(`Anthropic Beta:  ${totals.anthropicBeta.timeMs}ms | ${totals.anthropicBeta.apiCalls} calls | ${totals.anthropicBeta.tokens} tok`);
+  console.log(`Supertools:      ${totals.supertools.timeMs}ms | ${totals.supertools.apiCalls} calls | ${totals.supertools.tokens} tok`);
+
+  console.log(`\n${"═".repeat(70)}`);
+  console.log("SUPERTOOLS vs NATIVE");
+  console.log(`${"═".repeat(70)}`);
+  console.log(`Time:      ${speedup(totals.native.timeMs, totals.supertools.timeMs)}`);
+  console.log(`Tokens:    ${pct(totals.native.tokens, totals.supertools.tokens)}`);
+  console.log(`API Calls: ${pct(totals.native.apiCalls, totals.supertools.apiCalls)}`);
+
+  console.log(`\n${"═".repeat(70)}`);
+  console.log("SUPERTOOLS vs ANTHROPIC BETA");
+  console.log(`${"═".repeat(70)}`);
+  console.log(`Time:      ${speedup(totals.anthropicBeta.timeMs, totals.supertools.timeMs)}`);
+  console.log(`Tokens:    ${pct(totals.anthropicBeta.tokens, totals.supertools.tokens)}`);
+  console.log(`API Calls: ${pct(totals.anthropicBeta.apiCalls, totals.supertools.apiCalls)}`);
+
 }
+
+// -----------------------------------------------------------------------------
+// Main
+// -----------------------------------------------------------------------------
 
 async function main() {
   const client = new Anthropic();
 
   console.log("Creating E2B sandbox...");
   const sandbox = await Sandbox.create("supertools-bun", { timeoutMs: 5 * 60 * 1000 });
-  console.log("Sandbox ready\n");
+  console.log("Sandbox ready");
 
   try {
-    const benchmarks = [
-      {
-        name: "Simple (1 tool)",
-        prompt: "Get all admin users",
-      },
-      {
-        name: "Parallel (2 tools)",
-        prompt: "Get all users and all orders",
-      },
-      {
-        name: "Sequential (dependent)",
-        prompt: "Get admin users, then get orders for each admin",
-      },
-      {
-        name: "Complex (logic + aggregation)",
-        prompt: "Get all users, find admins, get their orders, and calculate total revenue per admin",
-      },
-    ];
+    const results: Result[] = [];
 
-    const results: BenchmarkResult[] = [];
-
-    for (const bench of benchmarks) {
-      const result = await runBenchmark(client, sandbox, bench.name, bench.prompt);
-      results.push(result);
+    for (const { name, prompt } of BENCHMARKS) {
+      results.push(await runBenchmark(client, sandbox, name, prompt));
     }
 
-    // Summary
-    console.log("\n" + "=".repeat(100));
-    console.log("SUMMARY");
-    console.log("=".repeat(100));
-
-    // Helper to format metrics
-    const fmt = (m: MetricsResult) =>
-      `${String(m.timeMs).padStart(5)}ms ${String(m.llmCalls).padStart(1)}c ${String(m.tokens).padStart(5)}tok`;
-
-    // Detailed table
-    console.log("\n| Benchmark              | Native             | Anthropic Beta     | Supertools         |");
-    console.log("|------------------------|--------------------|--------------------|---------------------|");
-
-    for (const r of results) {
-      console.log(
-        `| ${r.name.padEnd(22)} | ${fmt(r.native)} | ${fmt(r.anthropicBeta)} | ${fmt(r.supertools)} |`
-      );
-    }
-
-    // Totals
-    const totals = results.reduce(
-      (acc, r) => ({
-        native: {
-          timeMs: acc.native.timeMs + r.native.timeMs,
-          llmCalls: acc.native.llmCalls + r.native.llmCalls,
-          toolCalls: acc.native.toolCalls + r.native.toolCalls,
-          tokens: acc.native.tokens + r.native.tokens,
-        },
-        anthropicBeta: {
-          timeMs: acc.anthropicBeta.timeMs + r.anthropicBeta.timeMs,
-          llmCalls: acc.anthropicBeta.llmCalls + r.anthropicBeta.llmCalls,
-          toolCalls: acc.anthropicBeta.toolCalls + r.anthropicBeta.toolCalls,
-          tokens: acc.anthropicBeta.tokens + r.anthropicBeta.tokens,
-        },
-        supertools: {
-          timeMs: acc.supertools.timeMs + r.supertools.timeMs,
-          llmCalls: acc.supertools.llmCalls + r.supertools.llmCalls,
-          toolCalls: acc.supertools.toolCalls + r.supertools.toolCalls,
-          tokens: acc.supertools.tokens + r.supertools.tokens,
-        },
-      }),
-      {
-        native: { timeMs: 0, llmCalls: 0, toolCalls: 0, tokens: 0 },
-        anthropicBeta: { timeMs: 0, llmCalls: 0, toolCalls: 0, tokens: 0 },
-        supertools: { timeMs: 0, llmCalls: 0, toolCalls: 0, tokens: 0 }
-      }
-    );
-
-    console.log("|------------------------|--------------------|--------------------|---------------------|");
-    console.log(
-      `| ${"TOTAL".padEnd(22)} | ${fmt(totals.native)} | ${fmt(totals.anthropicBeta)} | ${fmt(totals.supertools)} |`
-    );
-
-    // Comparison
-    console.log("\n" + "=".repeat(100));
-    console.log("COMPARISON (vs Native)");
-    console.log("=".repeat(100));
-
-    const betaSpeedup = (totals.native.timeMs / totals.anthropicBeta.timeMs).toFixed(1);
-    const betaTokenDiff = (((totals.native.tokens - totals.anthropicBeta.tokens) / totals.native.tokens) * 100).toFixed(0);
-    const betaCallReduction = (((totals.native.llmCalls - totals.anthropicBeta.llmCalls) / totals.native.llmCalls) * 100).toFixed(0);
-
-    const stSpeedup = (totals.native.timeMs / totals.supertools.timeMs).toFixed(1);
-    const stTokenSavings = (((totals.native.tokens - totals.supertools.tokens) / totals.native.tokens) * 100).toFixed(0);
-    const stCallReduction = (((totals.native.llmCalls - totals.supertools.llmCalls) / totals.native.llmCalls) * 100).toFixed(0);
-
-    console.log("\nAnthropic Beta (code_execution):");
-    console.log(`  Time:      ${betaSpeedup}x ${Number(betaSpeedup) >= 1 ? "faster" : "slower"}`);
-    console.log(`  Tokens:    ${Math.abs(Number(betaTokenDiff))}% ${Number(betaTokenDiff) >= 0 ? "fewer" : "more"}`);
-    console.log(`  LLM Calls: ${Math.abs(Number(betaCallReduction))}% ${Number(betaCallReduction) >= 0 ? "fewer" : "more"}`);
-
-    console.log("\nSupertools (E2B sandbox):");
-    console.log(`  Time:      ${stSpeedup}x ${Number(stSpeedup) >= 1 ? "faster" : "slower"}`);
-    console.log(`  Tokens:    ${Math.abs(Number(stTokenSavings))}% ${Number(stTokenSavings) >= 0 ? "fewer" : "more"}`);
-    console.log(`  LLM Calls: ${Math.abs(Number(stCallReduction))}% ${Number(stCallReduction) >= 0 ? "fewer" : "more"}`);
-
-    // Supertools vs Anthropic Beta
-    console.log("\n" + "=".repeat(100));
-    console.log("SUPERTOOLS vs ANTHROPIC BETA");
-    console.log("=".repeat(100));
-
-    const stVsBetaSpeed = (totals.anthropicBeta.timeMs / totals.supertools.timeMs).toFixed(1);
-    const stVsBetaTokens = (((totals.anthropicBeta.tokens - totals.supertools.tokens) / totals.anthropicBeta.tokens) * 100).toFixed(0);
-
-    console.log(`\nTime:   Supertools is ${stVsBetaSpeed}x ${Number(stVsBetaSpeed) >= 1 ? "faster" : "slower"} than Anthropic Beta`);
-    console.log(`Tokens: Supertools uses ${Math.abs(Number(stVsBetaTokens))}% ${Number(stVsBetaTokens) >= 0 ? "fewer" : "more"} tokens`);
-
-    console.log("\nTrade-offs:");
-    console.log("- Native:         Natural language response, multiple round-trips");
-    console.log("- Anthropic Beta: Built-in sandbox (Python), no setup needed, higher token usage");
-    console.log("- Supertools:     External sandbox (E2B/Bun), requires setup, lowest tokens, raw JSON output");
+    printSummary(results);
   } finally {
     await sandbox.kill();
   }
