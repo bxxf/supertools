@@ -7,7 +7,7 @@
  * @example
  * ```ts
  * import { supertools, defineTool, z } from '@supertools-ai/core';
- * import { Sandbox } from '@e2b/code-interpreter';
+ * import { Sandbox } from 'e2b';
  * import Anthropic from '@anthropic-ai/sdk';
  *
  * const tools = [
@@ -32,7 +32,7 @@
  * ```
  */
 
-import type { Sandbox } from '@e2b/code-interpreter';
+import type { Sandbox } from 'e2b';
 import type { AnyTool } from './tool';
 import type { ExecutionEvent } from './types';
 import { isAnthropicClient, wrapAnthropicClient } from './providers/anthropic';

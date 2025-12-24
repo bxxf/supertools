@@ -52,7 +52,7 @@ bun add @supertools-ai/core
 
 ```typescript
 import { supertools, defineTool, z } from '@supertools-ai/core';
-import { Sandbox } from '@e2b/code-interpreter';
+import { Sandbox } from 'e2b';
 import Anthropic from '@anthropic-ai/sdk';
 
 // Define your tools with Zod schemas
@@ -159,7 +159,7 @@ Wrap any supported LLM SDK client with programmatic tool calling.
 
 ```typescript
 import { supertools, defineTool, z } from '@supertools-ai/core';
-import { Sandbox } from '@e2b/code-interpreter';
+import { Sandbox } from 'e2b';
 import Anthropic from '@anthropic-ai/sdk';
 
 const sandbox = await Sandbox.create('supertools-bun');
@@ -229,7 +229,7 @@ For more control, use the executor directly:
 
 ```typescript
 import { createExecutor, defineTool } from '@supertools-ai/core';
-import { Sandbox } from '@e2b/code-interpreter';
+import { Sandbox } from 'e2b';
 
 // Create your own LLM adapter
 const myAdapter = {

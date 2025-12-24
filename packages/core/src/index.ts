@@ -7,7 +7,7 @@
  * @example
  * ```ts
  * import { supertools, defineTool, z } from '@supertools-ai/core';
- * import { Sandbox } from '@e2b/code-interpreter';
+ * import { Sandbox } from 'e2b';
  * import Anthropic from '@anthropic-ai/sdk';
  *
  * const queryDb = defineTool({

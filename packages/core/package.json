@@ -17,12 +17,14 @@
   "scripts": {
     "build": "bun build src/index.ts --outdir dist --target node --format esm && tsc --emitDeclarationOnly",
     "build-template": "bun run e2b/build-template.ts",
+    "build-template-mcp": "bun run e2b/build-template-mcp.ts",
     "dev": "bun --watch src/index.ts",
     "test": "bun test",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@e2b/code-interpreter": "^1.0.0",
+    "@modelcontextprotocol/sdk": "^1.25.0",
+    "e2b": "^2.9.0",
     "zod": "^4.2.1"
   },
   "devDependencies": {

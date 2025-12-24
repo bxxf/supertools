@@ -2,7 +2,7 @@
 // Simple sandbox pool - you'd use Redis or similar in production to manage sandboxes
 // =============================================================================
 
-import Sandbox from '@e2b/code-interpreter';
+import { Sandbox } from 'e2b';
 
 export class SandboxPool {
   private available: Sandbox[] = [];

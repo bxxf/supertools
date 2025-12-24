@@ -43,7 +43,7 @@ export const toolResultSchema = z.object({
 
 export const errorSchema = z.object({
   type: z.literal('error'),
-  id: messageId,
+  id: messageId.optional(), // Optional - execution errors may not have request id
   error: z.string().min(1).max(4096),
   code: z.string().max(64).optional(),
 }).strict();

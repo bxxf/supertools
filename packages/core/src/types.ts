@@ -1,4 +1,4 @@
-import type { Sandbox } from '@e2b/code-interpreter';
+import type { Sandbox } from 'e2b';
 import type { AnyTool } from './tool';
 
 export type ToolCollection = readonly AnyTool[];

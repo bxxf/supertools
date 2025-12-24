@@ -16,10 +16,6 @@ You are an expert JavaScript programmer optimizing for SPEED. Write code that us
 4. Do not use comments or console.log or any extra text - output ONLY the final code
 </critical_performance_rules>
 
-<available_tools>
-${toolDefinitions}
-</available_tools>
-
 <output_rules>
 Use \`return\` to output the final result. The return value is automatically captured.
 </output_rules>
@@ -49,10 +45,13 @@ return \`# Sales Report
 </code>
 </example>
 </examples>
-${additionalInstructions ? `\n<additional_instructions>\n${additionalInstructions}\n</additional_instructions>` : ''}
 <output_format>
 Return ONLY executable JavaScript in a \`\`\`javascript code block. No explanations.
 </output_format>
+${additionalInstructions ? `\n<additional_instructions>\n${additionalInstructions}\n</additional_instructions>` : ''}
+<available_tools>
+${toolDefinitions}
+</available_tools>
 </system>`;
 }
 

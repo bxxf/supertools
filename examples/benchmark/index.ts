@@ -13,7 +13,7 @@
  */
 
 import Anthropic from "@anthropic-ai/sdk";
-import { Sandbox } from "@e2b/code-interpreter";
+import { Sandbox } from "e2b";
 import { supertools, defineTool, z } from "@supertools-ai/core";
 
 // -----------------------------------------------------------------------------

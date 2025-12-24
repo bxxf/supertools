@@ -9,7 +9,7 @@
  */
 
 import { randomUUID } from 'node:crypto';
-import { Sandbox } from '@e2b/code-interpreter';
+import type { Sandbox } from 'e2b';
 import { RelayClient } from './relay/client';
 import { DEFAULT_RELAY_CONFIG, type RelayConfig } from './relay/types';
 import { buildSystemPrompt, extractCode } from './prompts';
