@@ -63,7 +63,7 @@ async function chat(
     console.log("\nAssistant: thinking...\n");
 
     const response = await client.messages.create({
-      model: "claude-haiku-4-5-20251001",
+      model: "claude-sonnet-4-5",
       max_tokens: 1024,
       system:
         "You have access to a user/order database. Use the tools to answer questions. Be concise.",

@@ -166,10 +166,28 @@ export class ProgrammaticExecutor {
     try {
       return await this.llm.generateCode(request, systemPrompt);
     } catch (error) {
-      throw new CodeGenerationError(
-        `Failed to generate code: ${error instanceof Error ? error.message : 'Unknown error'}`,
-        error instanceof Error ? error : undefined
-      );
+      const message = error instanceof Error ? error.message : 'Unknown error';
+
+      // Detect common errors and provide cleaner messages
+      if (message.includes('Could not resolve authentication')) {
+        throw new CodeGenerationError(
+          'Missing ANTHROPIC_API_KEY. Set it with: export ANTHROPIC_API_KEY=your-key'
+        );
+      }
+      if (message.includes('not_found_error') && message.includes('model:')) {
+        const modelMatch = message.match(/model:\s*([^\s"]+)/);
+        const model = modelMatch?.[1] || 'unknown';
+        throw new CodeGenerationError(
+          `Model "${model}" not found. Try: claude-sonnet-4-5 or claude-haiku-4-5`
+        );
+      }
+      if (message.includes('invalid_api_key') || message.includes('Invalid API Key')) {
+        throw new CodeGenerationError(
+          'Invalid ANTHROPIC_API_KEY. Check your key at console.anthropic.com'
+        );
+      }
+
+      throw new CodeGenerationError(`Failed to generate code: ${message}`);
     }
   }
 
@@ -188,10 +206,15 @@ export class ProgrammaticExecutor {
       await client.connect();
       return client;
     } catch (error) {
-      throw new RelayConnectionError(
-        `Failed to connect to relay: ${error instanceof Error ? error.message : 'Unknown error'}`,
-        error instanceof Error ? error : undefined
-      );
+      const message = error instanceof Error ? error.message : 'Unknown error';
+
+      if (message.includes('ECONNREFUSED') || message.includes('timeout')) {
+        throw new RelayConnectionError(
+          'Could not connect to sandbox. Make sure E2B sandbox is running and accessible.'
+        );
+      }
+
+      throw new RelayConnectionError(`Failed to connect to sandbox relay: ${message}`);
     }
   }
 

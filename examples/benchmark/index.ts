@@ -20,7 +20,7 @@ import { supertools, defineTool, z } from "@supertools-ai/core";
 // Configuration
 // -----------------------------------------------------------------------------
 
-const MODEL = "claude-sonnet-4-5-20250929";
+const MODEL = "claude-sonnet-4-5";
 const MAX_TOKENS = 1024;
 
 const BENCHMARKS = [

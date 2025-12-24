@@ -135,7 +135,7 @@ async function main() {
     // Use exactly like the normal Anthropic SDK
     // Behind the scenes: 1 API call → generates code → runs in sandbox → calls all tools
     await client.messages.create({
-      model: "claude-haiku-4-5-20251001",
+      model: "claude-sonnet-4-5",
       max_tokens: 4096,
       messages: [
         {

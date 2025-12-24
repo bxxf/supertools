@@ -50,10 +50,10 @@ User Request → LLM generates code → Sandbox executes → Result
 bun add @supertools-ai/core @anthropic-ai/sdk e2b
 ```
 
-Set your API keys:
+Create a `.env` file with your API keys:
 ```bash
-export ANTHROPIC_API_KEY=your-key
-export E2B_API_KEY=your-key
+ANTHROPIC_API_KEY=your-key  # Get at console.anthropic.com
+E2B_API_KEY=your-key        # Get at e2b.dev
 ```
 
 Create `index.ts` and run with `bun run index.ts`:
@@ -89,7 +89,10 @@ const getOrders = defineTool({
 });
 
 // Main
-const sandbox = await Sandbox.create('supertools-bun');
+const sandbox = await Sandbox.create('supertools-bun').catch((e) => {
+  console.error('Failed to create sandbox:', e);
+  process.exit(1);
+});
 
 try {
   const client = supertools(new Anthropic(), {
@@ -102,7 +105,7 @@ try {
   });
 
   await client.messages.create({
-    model: 'claude-sonnet-4-5-20241022',
+    model: 'claude-sonnet-4-5',
     max_tokens: 1024,
     messages: [{
       role: 'user',
@@ -196,8 +199,6 @@ const client = supertools(new Anthropic(), {
     // - 'tool_result': Tool completed (includes result and durationMs)
     // - 'tool_error': Tool execution failed
     // - 'result': Final execution result
-    // - 'stdout': Standard output from sandbox
-    // - 'stderr': Standard error from sandbox
     // - 'complete': Execution finished (success or error)
     if (event.type === 'tool_call') console.log(`Calling ${event.tool}...`);
     if (event.type === 'tool_result') console.log(`${event.tool} done in ${event.durationMs}ms`);
@@ -207,7 +208,7 @@ const client = supertools(new Anthropic(), {
 
 // Use exactly like the original SDK
 const response = await client.messages.create({
-  model: 'claude-haiku-4-5-20251001',
+  model: 'claude-haiku-4-5',
   max_tokens: 1024,
   messages: [{ role: 'user', content: 'Your request here' }],
 });

@@ -48,8 +48,6 @@ export type ExecutionEvent =
   | { readonly type: 'tool_result'; readonly tool: string; readonly result: unknown; readonly callId: string; readonly durationMs: number }
   | { readonly type: 'tool_error'; readonly tool: string; readonly error: string; readonly callId: string }
   | { readonly type: 'result'; readonly data: unknown }
-  | { readonly type: 'stdout'; readonly data: string }
-  | { readonly type: 'stderr'; readonly data: string }
   | { readonly type: 'complete'; readonly success: boolean; readonly output: string; readonly error?: string };
 
 export interface ExecutorConfig {

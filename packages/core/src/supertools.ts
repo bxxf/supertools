@@ -25,7 +25,7 @@
  *
  * // Use exactly like the normal SDK
  * const response = await client.messages.create({
- *   model: 'claude-haiku-4-5-20251001',
+ *   model: 'claude-sonnet-4-5',
  *   max_tokens: 1024,
  *   messages: [{ role: 'user', content: 'Query all users and summarize' }],
  * });
@@ -91,7 +91,7 @@ export function detectProvider(client: unknown): SupportedProvider | null {
  *
  * // Works exactly like the normal Anthropic SDK
  * const response = await client.messages.create({
- *   model: 'claude-haiku-4-5-20251001',
+ *   model: 'claude-sonnet-4-5',
  *   max_tokens: 1024,
  *   messages: [{ role: 'user', content: 'Find top users and email report' }],
  * });
