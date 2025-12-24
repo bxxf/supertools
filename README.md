@@ -16,7 +16,7 @@
 
 ---
 
-> Inspired by [Anthropic's Programmatic Tool Calling](https://docs.anthropic.com/en/docs/build-with-claude/tool-use/computer-use#programmatic-tool-calling) — the LLM writes code that orchestrates tools, instead of calling them one by one.
+> Inspired by [Anthropic's Programmatic Tool Calling](https://platform.claude.com/docs/en/agents-and-tools/tool-use/programmatic-tool-calling) — the LLM writes code that orchestrates tools, instead of calling them one by one.
 
 ## The Problem
 
@@ -172,8 +172,18 @@ const client = supertools(new Anthropic(), {
   debug: false,        // Enable debug logging
   instructions: '...', // Additional instructions for the LLM
   onEvent: (event) => {
-    // Track tool calls, results, errors
+    // Available event types:
+    // - 'code_generated': LLM generated the code
+    // - 'sandbox_ready': Sandbox connection established
+    // - 'tool_call': Tool invoked (includes tool name and args)
+    // - 'tool_result': Tool completed (includes result and durationMs)
+    // - 'tool_error': Tool execution failed
+    // - 'result': Final execution result
+    // - 'stdout': Standard output from sandbox
+    // - 'stderr': Standard error from sandbox
+    // - 'complete': Execution finished (success or error)
     if (event.type === 'tool_call') console.log(`Calling ${event.tool}...`);
+    if (event.type === 'tool_result') console.log(`${event.tool} done in ${event.durationMs}ms`);
     if (event.type === 'result') console.log('Result:', event.data);
   },
 });
@@ -196,8 +206,8 @@ const response = await client.messages.create({
 
 ```typescript
 const tool = defineTool({
-  name: 'searchUsers',           // Must be valid identifier
-  description: 'Search users',   // Used in LLM prompt
+  name: 'searchUsers',           // Must match /^[a-zA-Z][a-zA-Z0-9_]*$/
+  description: 'Search users',   // Used in LLM prompt (min 5 chars)
   parameters: z.object({         // Zod schema for inputs
     query: z.string(),
     limit: z.number().optional().default(10),
@@ -207,6 +217,8 @@ const tool = defineTool({
     return db.users.search(params);
   },
 });
+// Note: Tool names are converted to snake_case in sandbox code
+// e.g., 'searchUsers' becomes 'search_users' when called
 
 // Local tools run entirely in the sandbox (no network round-trip)
 // Use for pure computation when all data is already available
@@ -312,6 +324,8 @@ console.log(result.result.output);  // stdout from execution
 6. Your tools execute locally with full access to your systems
 7. Results flow back to the sandbox, code continues executing
 8. Final output returns in the expected SDK response format
+
+> **Note:** The Relay Server runs inside the pre-built `supertools-bun` E2B template. The Relay Client is included in the `@supertools-ai/core` package and runs on your host.
 
 **Security:**
 - LLM-generated code runs in isolated cloud containers

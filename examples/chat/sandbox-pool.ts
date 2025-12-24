@@ -45,17 +45,30 @@ export class SandboxPool {
         `  [pool] Returned to pool (${this.available.length}/${this.maxSize})`
       );
     } else {
-      await sandbox.kill();
-      this.activeCount--;
+      try {
+        await sandbox.kill();
+      } catch (error) {
+        console.error("  [pool] failed to kill sandbox:", error);
+      } finally {
+        this.activeCount--;
+      }
       console.log("  [pool] pool full, killed sandbox");
     }
   }
 
   async shutdown(): Promise<void> {
     console.log("\n  [pool] shutting down all sandboxes...");
-    const count = this.available.length;
-    await Promise.all(this.available.map((sb) => sb.kill()));
-    this.activeCount -= count;
+    await Promise.all(
+      this.available.map(async (sb) => {
+        try {
+          await sb.kill();
+        } catch (error) {
+          console.error("  [pool] failed to kill sandbox during shutdown:", error);
+        } finally {
+          this.activeCount--;
+        }
+      })
+    );
     this.available = [];
   }
 }
