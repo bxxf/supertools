@@ -1,10 +1,10 @@
 # Supertools
 
 <p align="center">
-  <img src="assets/banner.svg" alt="Supertools - Let LLMs write code that calls your tools" width="100%">
+  <img src="https://raw.githubusercontent.com/bxxf/supertools/refs/heads/main/assets/banner.svg" alt="Supertools - Let LLMs write code that calls your tools" width="100%">
 </p>
 
-> **🚧 Work in Progress** — This project is under active development. The npm package will be published soon. Contributions are welcome, especially for adding support for other AI providers (OpenAI, Vercel AI SDK, etc.)!
+> **🚧 Work in Progress** — This project is under active development. Contributions are welcome, especially for adding support for other AI providers (OpenAI, Vercel AI SDK, etc.)!
 
 <p align="center">
   <a href="#quick-start">Quick Start</a> •
@@ -50,54 +50,71 @@ User Request → LLM generates code → Sandbox executes → Result
 bun add @supertools-ai/core @anthropic-ai/sdk e2b
 ```
 
+Set your API keys:
+```bash
+export ANTHROPIC_API_KEY=your-key
+export E2B_API_KEY=your-key
+```
+
+Create `index.ts` and run with `bun run index.ts`:
+
 ```typescript
 import { supertools, defineTool, z } from '@supertools-ai/core';
 import { Sandbox } from 'e2b';
 import Anthropic from '@anthropic-ai/sdk';
 
-// Define your tools with Zod schemas
-const queryDatabase = defineTool({
-  name: 'queryDatabase',
-  description: 'Execute a SQL query',
+// Sample data
+const orders = [
+  { id: 1, customer: 'Alice', total: 150, status: 'completed' },
+  { id: 2, customer: 'Bob', total: 75, status: 'pending' },
+  { id: 3, customer: 'Alice', total: 200, status: 'completed' },
+  { id: 4, customer: 'Charlie', total: 50, status: 'completed' },
+];
+
+// Define tools with Zod schemas
+const getOrders = defineTool({
+  name: 'getOrders',
+  description: 'Get orders, optionally filtered by status',
   parameters: z.object({
-    sql: z.string().describe('The SQL query to execute'),
+    status: z.enum(['pending', 'completed']).optional(),
   }),
-  returns: z.array(z.record(z.unknown())),  // Array of row objects
-  execute: async ({ sql }) => db.query(sql),
+  returns: z.array(z.object({
+    id: z.number(),
+    customer: z.string(),
+    total: z.number(),
+    status: z.string(),
+  })),
+  execute: async ({ status }) =>
+    status ? orders.filter(o => o.status === status) : orders,
 });
 
-const sendEmail = defineTool({
-  name: 'sendEmail',
-  description: 'Send an email',
-  parameters: z.object({
-    to: z.string(),
-    subject: z.string(),
-    body: z.string(),
-  }),
-  returns: z.object({ success: z.boolean(), messageId: z.string() }),
-  execute: async ({ to, subject, body }) => mailer.send({ to, subject, body }),
-});
-
-// Create sandbox and wrap your SDK client
+// Main
 const sandbox = await Sandbox.create('supertools-bun');
-const client = supertools(new Anthropic(), {
-  tools: [queryDatabase, sendEmail],
-  sandbox,
-});
 
-// Use exactly like the normal Anthropic SDK
-const response = await client.messages.create({
-  model: 'claude-haiku-4-5-20251001',
-  max_tokens: 1024,
-  messages: [{
-    role: 'user',
-    content: 'Query sales for all 50 states, find the top 5, and email a report to the CEO'
-  }],
-});
+try {
+  const client = supertools(new Anthropic(), {
+    tools: [getOrders],
+    sandbox,
+    onEvent: (e) => {
+      if (e.type === 'tool_call') console.log(`→ ${e.tool}()`);
+      if (e.type === 'result') console.log('Result:', e.data);
+    },
+  });
 
-// Traditional: 2-3 LLM round-trips + tokens for all 50 results in context
-// Supertools: 1 LLM call, loop runs in sandbox, only final result returned
+  await client.messages.create({
+    model: 'claude-sonnet-4-5-20241022',
+    max_tokens: 1024,
+    messages: [{
+      role: 'user',
+      content: 'Get all completed orders and calculate the total revenue',
+    }],
+  });
+} finally {
+  await sandbox.kill();
+}
 ```
+
+**What happens:** The LLM writes code that calls `getOrders()`, loops through results, and calculates the sum — all in one API call.
 
 ## How It Works
 
@@ -139,7 +156,7 @@ return { topStates: top5, reportSent: true };
 ## Why Supertools?
 
 <p align="center">
-  <img src="assets/benchmark.svg" alt="Benchmark Results" width="100%">
+  <img src="https://raw.githubusercontent.com/bxxf/supertools/refs/heads/main/assets/benchmark.svg" alt="Benchmark Results" width="100%">
 </p>
 
 The benchmark compares three approaches on the same model (Claude Sonnet 4.5):

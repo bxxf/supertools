@@ -1,6 +1,6 @@
 {
   "name": "@supertools-ai/core",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "Programmatic tool calling for LLMs - let AI write code that orchestrates your tools",
   "type": "module",
   "main": "./dist/index.js",
