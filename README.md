@@ -47,7 +47,7 @@ User Request → LLM generates code → Sandbox executes → Result
 ## Quick Start
 
 ```bash
-bun add @supertools-ai/core
+bun add @supertools-ai/core @anthropic-ai/sdk e2b
 ```
 
 ```typescript
@@ -349,7 +349,7 @@ console.log(result.result.output);  // stdout from execution
 ## Roadmap
 
 **Coming Soon:**
-- [ ] Publish npm package (`@supertools-ai/core`)
+- [x] Publish npm package (`@supertools-ai/core`)
 - [x] Publish E2B sandbox template for zero-config setup
 
 **Providers:**
