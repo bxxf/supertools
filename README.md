@@ -254,52 +254,52 @@ console.log(result.result.output);  // stdout from execution
 ## Architecture
 
 ```
-┌─────────────────────────────────────────────────────────────┐
-│                      Your Application                        │
-│                                                             │
-│   const client = supertools(new Anthropic(), { tools, sandbox }); │
-│   const response = await client.messages.create({...});     │
-└──────────────────────────┬──────────────────────────────────┘
-                           │
-                           ▼
-              ┌────────────────────────┐
-              │    Supertools Wrapper   │
-              │  (intercepts SDK calls)│
-              └────────────┬───────────┘
-                           │ generates JavaScript
-                           ▼
-┌─────────────────────────────────────────────────────────────┐
-│                    E2B Cloud Sandbox                         │
-│  ┌───────────────────────────────────────────────────────┐  │
-│  │                  Generated Code                        │  │
-│  │                                                        │  │
-│  │   for (const r of regions) {                          │  │
-│  │     const data = await query_db({ region: r });       │  │
-│  │     results.push(data);                               │  │
-│  │   }                                                   │  │
-│  │   await send_email({ to: 'ceo', body: summary });     │  │
-│  │   return { regions: results, emailSent: true };       │  │
-│  │                                                        │  │
-│  └────────────────────────┬──────────────────────────────┘  │
-│                           │ tool calls via WebSocket         │
-│  ┌────────────────────────▼──────────────────────────────┐  │
-│  │              Relay Server (Bun)                        │  │
-│  │         WebSocket bridge to host                       │  │
-│  └────────────────────────┬──────────────────────────────┘  │
-└───────────────────────────┼─────────────────────────────────┘
-                            │ WebSocket (authenticated)
-                            ▼
-              ┌────────────────────────┐
-              │     Relay Client       │
-              │  (runs on your host)   │
-              └────────────┬───────────┘
-                           │
-                           ▼
-              ┌────────────────────────┐
-              │      Your Tools        │
-              │  query_db, send_email  │
-              │  (execute locally)     │
-              └────────────────────────┘
+┌───────────────────────────────────────────────────────────────────┐
+│                         Your Application                          │
+│                                                                   │
+│  const client = supertools(new Anthropic(), { tools, sandbox });  │
+│  const response = await client.messages.create({...});            │
+└─────────────────────────────────┬─────────────────────────────────┘
+                                  │
+                                  ▼
+                   ┌────────────────────────────┐
+                   │     Supertools Wrapper     │
+                   │   (intercepts SDK calls)   │
+                   └──────────────┬─────────────┘
+                                  │ generates JavaScript
+                                  ▼
+┌───────────────────────────────────────────────────────────────────┐
+│                        E2B Cloud Sandbox                          │
+│  ┌─────────────────────────────────────────────────────────────┐  │
+│  │                       Generated Code                        │  │
+│  │                                                             │  │
+│  │   for (const r of regions) {                                │  │
+│  │     const data = await query_db({ region: r });             │  │
+│  │     results.push(data);                                     │  │
+│  │   }                                                         │  │
+│  │   await send_email({ to: 'ceo', body: summary });           │  │
+│  │   return { regions: results, emailSent: true };             │  │
+│  │                                                             │  │
+│  └────────────────────────────┬────────────────────────────────┘  │
+│                               │ tool calls via WebSocket          │
+│  ┌────────────────────────────▼────────────────────────────────┐  │
+│  │                    Relay Server (Bun)                       │  │
+│  │                  WebSocket bridge to host                   │  │
+│  └────────────────────────────┬────────────────────────────────┘  │
+└───────────────────────────────┼───────────────────────────────────┘
+                                │ WebSocket (authenticated)
+                                ▼
+                   ┌────────────────────────────┐
+                   │        Relay Client        │
+                   │    (runs on your host)     │
+                   └──────────────┬─────────────┘
+                                  │
+                                  ▼
+                   ┌────────────────────────────┐
+                   │         Your Tools         │
+                   │    query_db, send_email    │
+                   │      (execute locally)     │
+                   └────────────────────────────┘
 ```
 
 **How it works:**
@@ -336,7 +336,7 @@ console.log(result.result.output);  // stdout from execution
 
 **Coming Soon:**
 - [ ] Publish npm package (`@supertools-ai/core`)
-- [ ] Publish E2B sandbox template for zero-config setup
+- [x] Publish E2B sandbox template for zero-config setup
 
 **Providers:**
 - [x] Anthropic SDK
