@@ -164,9 +164,10 @@ function zodToJS(schema: ZodSchema, depth: number): string {
       return 'any';
     }
     case 'null':
+      return 'null';
     case 'undefined':
     case 'void':
-      return 'null';
+      return 'undefined';
     case 'any':
     case 'unknown':
       return 'any';
@@ -179,6 +180,12 @@ function zodToJS(schema: ZodSchema, depth: number): string {
   }
 }
 
+/**
+ * Extract Zod schema definition.
+ * Note: Uses internal _zod.def property as Zod v4 doesn't expose a stable public API
+ * for introspecting arbitrary schema types. This is a known limitation - if Zod changes
+ * internals, this function may need updates.
+ */
 function getDef(schema: ZodSchema): ZodDef {
   const s = schema as { _zod?: { def?: ZodDef } };
   return s._zod?.def ?? { type: 'unknown' };

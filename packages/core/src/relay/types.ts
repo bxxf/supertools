@@ -9,6 +9,11 @@ export interface RelayConfig {
   readonly debug: boolean;
 }
 
+/**
+ * Default relay config.
+ * Note: token is empty by default - callers should generate a secure random token
+ * using crypto.randomUUID() or similar before connecting.
+ */
 export const DEFAULT_RELAY_CONFIG: RelayConfig = {
   port: 8080,
   token: '',

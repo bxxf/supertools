@@ -89,18 +89,10 @@ async function executeCode(
       log('Local tool:', name);
     }
 
-    // Wrap user code to automatically capture return value
-    // This way LLM just uses `return` and we handle sending the result
-    const wrappedCode = `
-      const __execute = async () => {
-        ${code}
-      };
-      return await __execute();
-    `;
-
     // Build and execute
+    // Code is passed as parameter to AsyncFunction to avoid template literal injection issues
     const AsyncFunction = Object.getPrototypeOf(async function(){}).constructor;
-    const fn = new AsyncFunction(...allToolNames, wrappedCode);
+    const fn = new AsyncFunction(...allToolNames, code);
     const result = await fn(...allToolNames.map(n => toolBindings[n]));
 
     // Automatically send the return value as result

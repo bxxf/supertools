@@ -111,10 +111,15 @@ const calculateStats = defineTool({
 // =============================================================================
 
 async function main() {
+  const apiKey = process.env.E2B_API_KEY;
+  if (!apiKey) {
+    throw new Error('E2B_API_KEY environment variable is required');
+  }
+
   // Create sandbox upfront - you manage the lifecycle
   // Use the default 'supertools-bun' or custom template - see DOCS on building custom templates for Supertools (should not be needed for most use cases)
   const sandbox = await Sandbox.create("supertools-bun", {
-    apiKey: process.env.E2B_API_KEY!,
+    apiKey,
     timeoutMs: 2 * 60 * 1000,
   });
 
