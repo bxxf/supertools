@@ -98,6 +98,10 @@ function createAnthropicAdapter(client: AnthropicClient, model: string): LLMAdap
       return {
         code: textContent.text,
         rawResponse: JSON.stringify(response),
+        usage: {
+          inputTokens: response.usage.input_tokens,
+          outputTokens: response.usage.output_tokens,
+        },
       };
     },
   };
@@ -174,8 +178,8 @@ export function wrapAnthropicClient<T extends AnthropicClient>(
             stop_reason: 'end_turn',
             stop_sequence: null,
             usage: {
-              input_tokens: 0,
-              output_tokens: 0,
+              input_tokens: result.usage?.inputTokens ?? 0,
+              output_tokens: result.usage?.outputTokens ?? 0,
             },
           };
 

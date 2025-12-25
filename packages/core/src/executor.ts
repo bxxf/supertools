@@ -81,7 +81,8 @@ export class ProgrammaticExecutor {
     ]);
 
     const code = extractCode(generated.code);
-    this.log('Generated code:', code.slice(0, 500));
+    this.log('Generated code:', code.slice(0, 200).replace(/\n/g, ' '));
+    this.log('LLM Usage:', generated.usage);
 
     this.emit({ type: 'code_generated', code, explanation: generated.explanation });
     this.emit({ type: 'sandbox_ready', sandboxId: this.sandbox.sandboxId });
@@ -94,6 +95,7 @@ export class ProgrammaticExecutor {
       code,
       explanation: generated.explanation,
       result: { ...result, executionTimeMs: Date.now() - totalStart },
+      usage: generated.usage,
     };
   }
 

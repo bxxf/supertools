@@ -15,12 +15,20 @@ export interface GeneratedCode {
   readonly code: string;
   readonly explanation?: string;
   readonly rawResponse?: string;
+  readonly usage?: {
+    readonly inputTokens: number;
+    readonly outputTokens: number;
+  };
 }
 
 export interface ProgrammaticResult {
   readonly code: string;
   readonly explanation?: string;
   readonly result: ExecutionResult;
+  readonly usage?: {
+    readonly inputTokens: number;
+    readonly outputTokens: number;
+  };
 }
 
 export interface ToolCallRequest {
