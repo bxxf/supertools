@@ -35,8 +35,7 @@
  */
 
 // Sandbox template - use this with E2B
-/** The recommended E2B sandbox template for this version of supertools */
-export const SANDBOX_TEMPLATE = 'supertools-bun-014';
+export { SANDBOX_TEMPLATE } from './constants';
 
 // Main API
 export { supertools, detectProvider } from './supertools';

@@ -9,6 +9,7 @@
 import type { NormalizedTool } from '../tool';
 import type { ExecutionEvent } from '../types';
 import { encode, decode, type MessageType, type DecodedMessage } from './proto';
+import { SANDBOX_TEMPLATE } from '../constants';
 
 // =============================================================================
 // Types
@@ -196,7 +197,7 @@ export class RelayClient {
   private onMessage(data: unknown): void {
     // Detect old JSON-based sandbox template
     if (typeof data === 'string') {
-      const error = `Sandbox template version mismatch. You are using an old sandbox template that uses JSON protocol. Please update to 'supertools-bun-014' or later: Sandbox.create('supertools-bun-014')`;
+      const error = `Sandbox template version mismatch. You are using an old sandbox template that uses JSON protocol. Please update to '${SANDBOX_TEMPLATE}' or later: Sandbox.create('${SANDBOX_TEMPLATE}')`;
       this.log(error);
       this.state.error = error;
       this.state.resolver?.({ success: false, error });
