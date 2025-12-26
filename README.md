@@ -59,7 +59,7 @@ E2B_API_KEY=your-key        # Get at e2b.dev
 Create `index.ts` and run with `bun run index.ts`:
 
 ```typescript
-import { supertools, defineTool, z } from '@supertools-ai/core';
+import { supertools, defineTool, z, SANDBOX_TEMPLATE } from '@supertools-ai/core';
 import { Sandbox } from 'e2b';
 import Anthropic from '@anthropic-ai/sdk';
 
@@ -88,8 +88,8 @@ const getOrders = defineTool({
     status ? orders.filter(o => o.status === status) : orders,
 });
 
-// Main - use "supertools-bun-014" E2B template - should match your supertools version
-const sandbox = await Sandbox.create('supertools-bun-014').catch((e) => {
+// SANDBOX_TEMPLATE is exported by supertools - always use it to ensure compatibility
+const sandbox = await Sandbox.create(SANDBOX_TEMPLATE).catch((e) => {
   console.error('Failed to create sandbox:', e);
   process.exit(1);
 });
@@ -179,11 +179,11 @@ The benchmark compares three approaches on the same model (Claude Sonnet 4.5):
 Wrap any supported LLM SDK client with programmatic tool calling.
 
 ```typescript
-import { supertools, defineTool, z } from '@supertools-ai/core';
+import { supertools, defineTool, z, SANDBOX_TEMPLATE } from '@supertools-ai/core';
 import { Sandbox } from 'e2b';
 import Anthropic from '@anthropic-ai/sdk';
 
-const sandbox = await Sandbox.create('supertools-bun-014');
+const sandbox = await Sandbox.create(SANDBOX_TEMPLATE);
 const client = supertools(new Anthropic(), {
   // Required
   tools: [defineTool({ name, description, parameters, execute })],
@@ -259,7 +259,7 @@ const calculateStats = defineTool({
 For more control, use the executor directly:
 
 ```typescript
-import { createExecutor, defineTool } from '@supertools-ai/core';
+import { createExecutor, defineTool, SANDBOX_TEMPLATE } from '@supertools-ai/core';
 import { Sandbox } from 'e2b';
 
 // Create your own LLM adapter
@@ -270,7 +270,7 @@ const myAdapter = {
   },
 };
 
-const sandbox = await Sandbox.create('supertools-bun-014');
+const sandbox = await Sandbox.create(SANDBOX_TEMPLATE);
 const executor = createExecutor({
   llm: myAdapter,
   tools: [/* your tools */],

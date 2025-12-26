@@ -6,7 +6,7 @@
  *
  * @example
  * ```ts
- * import { supertools, defineTool, z } from '@supertools-ai/core';
+ * import { supertools, defineTool, z, SANDBOX_TEMPLATE } from '@supertools-ai/core';
  * import { Sandbox } from 'e2b';
  * import Anthropic from '@anthropic-ai/sdk';
  *
@@ -20,7 +20,7 @@
  * });
  *
  * // Create sandbox and wrap your SDK client
- * const sandbox = await Sandbox.create('supertools-bun-014');
+ * const sandbox = await Sandbox.create(SANDBOX_TEMPLATE);
  * const client = supertools(new Anthropic(), { tools: [queryDb], sandbox });
  *
  * // Use exactly like normal - tools execute automatically
@@ -33,6 +33,10 @@
  *
  * @packageDocumentation
  */
+
+// Sandbox template - use this with E2B
+/** The recommended E2B sandbox template for this version of supertools */
+export const SANDBOX_TEMPLATE = 'supertools-bun-014';
 
 // Main API
 export { supertools, detectProvider } from './supertools';

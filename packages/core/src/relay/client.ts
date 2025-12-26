@@ -1,5 +1,6 @@
 /**
  * Relay Client
+ *  
  *
  * WebSocket client for bidirectional communication with the sandbox relay.
  * Uses Protocol Buffers for efficient binary encoding.
@@ -193,19 +194,31 @@ export class RelayClient {
   }
 
   private onMessage(data: unknown): void {
-    if (!(data instanceof ArrayBuffer)) {
+    // Detect old JSON-based sandbox template
+    if (typeof data === 'string') {
+      const error = `Sandbox template version mismatch. You are using an old sandbox template that uses JSON protocol. Please update to 'supertools-bun-014' or later: Sandbox.create('supertools-bun-014')`;
+      this.log(error);
+      this.state.error = error;
+      this.state.resolver?.({ success: false, error });
+      this.state.resolver = null;
+      return;
+    }
+
+    // Normalize binary data to ArrayBuffer (handles Node.js Buffer, Uint8Array, etc.)
+    const buffer = this.toArrayBuffer(data);
+    if (!buffer) {
       this.log('Expected binary message');
       return;
     }
 
-    if (data.byteLength > MAX_MESSAGE_SIZE) {
-      this.log(`Message too large: ${data.byteLength}`);
+    if (buffer.byteLength > MAX_MESSAGE_SIZE) {
+      this.log(`Message too large: ${buffer.byteLength}`);
       return;
     }
 
     let msg: DecodedMessage;
     try {
-      msg = decode(data);
+      msg = decode(buffer);
     } catch (e) {
       this.log('Decode error:', e);
       return;
@@ -261,6 +274,22 @@ export class RelayClient {
       this.emit({ type: 'tool_error', tool: name, error, callId: id });
       this.send('tool_result', { id, success: false, error });
     }
+  }
+
+  private toArrayBuffer(data: unknown): ArrayBuffer | null {
+    if (data instanceof ArrayBuffer) {
+      return data;
+    }
+
+    // Node.js Buffer or Uint8Array (ws library, Bun, etc.)
+    if (ArrayBuffer.isView(data)) {
+      const { buffer, byteOffset, byteLength } = data;
+      if (buffer instanceof ArrayBuffer) {
+        return buffer.slice(byteOffset, byteOffset + byteLength);
+      }
+    }
+
+    return null;
   }
 
   private send(type: MessageType, payload: Record<string, unknown>): void {
