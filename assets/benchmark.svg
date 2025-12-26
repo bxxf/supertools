@@ -1,6 +1,6 @@
-<svg width="900" height="520" viewBox="0 0 900 520" fill="none" xmlns="http://www.w3.org/2000/svg">
+<svg width="900" height="580" viewBox="0 0 900 580" fill="none" xmlns="http://www.w3.org/2000/svg">
   <!-- Terminal window -->
-  <rect width="900" height="520" rx="10" fill="#0c0c0c"/>
+  <rect width="900" height="580" rx="10" fill="#0c0c0c"/>
 
   <!-- Title bar -->
   <rect width="900" height="36" rx="10" fill="#1c1c1c"/>
@@ -34,79 +34,95 @@
     <!-- Row 1: Simple -->
     <g transform="translate(0, 100)">
       <text x="0" y="0" fill="#e4e4e7" font-size="12">Simple (1 tool)</text>
-      <text x="200" y="0" fill="#a1a1aa" font-size="12"> 5924ms  2c  1387tok</text>
-      <text x="400" y="0" fill="#a1a1aa" font-size="12">12176ms  2c  7188tok</text>
-      <text x="620" y="0" fill="#a1a1aa" font-size="12"> 3147ms  1c   561tok</text>
+      <text x="200" y="0" fill="#a1a1aa" font-size="12"> 5604ms  2c  1578tok</text>
+      <text x="400" y="0" fill="#a1a1aa" font-size="12">11684ms  2c  7324tok</text>
+      <text x="620" y="0" fill="#a1a1aa" font-size="12"> 3206ms  1c   586tok</text>
     </g>
 
-    <!-- Row 2: Parallel -->
+    <!-- Row 2: Medium -->
     <g transform="translate(0, 128)">
-      <text x="0" y="0" fill="#e4e4e7" font-size="12">Parallel (2 tools)</text>
-      <text x="200" y="0" fill="#a1a1aa" font-size="12"> 7663ms  2c  1742tok</text>
-      <text x="400" y="0" fill="#a1a1aa" font-size="12">13553ms  2c  7711tok</text>
-      <text x="620" y="0" fill="#a1a1aa" font-size="12"> 2964ms  1c   580tok</text>
+      <text x="0" y="0" fill="#e4e4e7" font-size="12">Medium (3 tools)</text>
+      <text x="200" y="0" fill="#a1a1aa" font-size="12"> 9865ms  3c  2790tok</text>
+      <text x="400" y="0" fill="#a1a1aa" font-size="12">14768ms  3c  7606tok</text>
+      <text x="620" y="0" fill="#a1a1aa" font-size="12"> 3270ms  1c   655tok</text>
     </g>
 
     <!-- Row 3: Sequential -->
     <g transform="translate(0, 156)">
-      <text x="0" y="0" fill="#e4e4e7" font-size="12">Sequential (dependent)</text>
-      <text x="200" y="0" fill="#a1a1aa" font-size="12"> 8647ms  3c  2408tok</text>
-      <text x="400" y="0" fill="#a1a1aa" font-size="12">16996ms  3c  7921tok</text>
-      <text x="620" y="0" fill="#a1a1aa" font-size="12"> 3283ms  1c   608tok</text>
+      <text x="0" y="0" fill="#e4e4e7" font-size="12">Sequential (5 tools)</text>
+      <text x="200" y="0" fill="#a1a1aa" font-size="12"> 9792ms  3c  2993tok</text>
+      <text x="400" y="0" fill="#a1a1aa" font-size="12">15892ms  3c  7741tok</text>
+      <text x="620" y="0" fill="#a1a1aa" font-size="12"> 3446ms  1c   638tok</text>
     </g>
 
-    <!-- Row 4: Complex -->
+    <!-- Row 4: Heavy -->
     <g transform="translate(0, 184)">
-      <text x="0" y="0" fill="#e4e4e7" font-size="12">Complex (logic + agg)</text>
-      <text x="200" y="0" fill="#a1a1aa" font-size="12"> 9984ms  3c  2766tok</text>
-      <text x="400" y="0" fill="#a1a1aa" font-size="12">18446ms  3c  8078tok</text>
-      <text x="620" y="0" fill="#a1a1aa" font-size="12"> 4204ms  1c   678tok</text>
+      <text x="0" y="0" fill="#e4e4e7" font-size="12">Heavy (10+ tools)</text>
+      <text x="200" y="0" fill="#a1a1aa" font-size="12">16201ms  3c  4679tok</text>
+      <text x="400" y="0" fill="#a1a1aa" font-size="12">25270ms  3c  9515tok</text>
+      <text x="620" y="0" fill="#a1a1aa" font-size="12"> 4332ms  1c   743tok</text>
+    </g>
+
+    <!-- Row 5: Insane - highlighted -->
+    <g transform="translate(0, 212)">
+      <text x="0" y="0" fill="#e4e4e7" font-size="12">Insane (30+ tools)</text>
+      <text x="200" y="0" fill="#f87171" font-size="12">22483ms  4c  8419tok</text>
+      <text x="400" y="0" fill="#fbbf24" font-size="12">77475ms 32c  9824tok</text>
+      <text x="620" y="0" fill="#4ade80" font-size="12"> 4957ms  1c   780tok</text>
     </g>
 
     <!-- Separator -->
-    <line x1="0" y1="204" x2="852" y2="204" stroke="#333333" stroke-width="1"/>
+    <line x1="0" y1="232" x2="852" y2="232" stroke="#333333" stroke-width="1"/>
 
     <!-- Total row -->
-    <g transform="translate(0, 232)">
+    <g transform="translate(0, 260)">
       <text x="0" y="0" fill="#ffffff" font-size="12" font-weight="600">TOTAL</text>
-      <text x="200" y="0" fill="#f87171" font-size="12" font-weight="500">32.2s  10c  8303tok</text>
-      <text x="400" y="0" fill="#fbbf24" font-size="12" font-weight="500">61.2s  10c 30898tok</text>
-      <text x="620" y="0" fill="#4ade80" font-size="12" font-weight="500">13.6s   4c  2427tok</text>
+      <text x="200" y="0" fill="#f87171" font-size="12" font-weight="500">63.9s  15c 20459tok</text>
+      <text x="400" y="0" fill="#fbbf24" font-size="12" font-weight="500">145.1s 43c 42010tok</text>
+      <text x="620" y="0" fill="#4ade80" font-size="12" font-weight="500">19.2s   5c  3402tok</text>
     </g>
 
     <!-- Results section -->
-    <line x1="0" y1="260" x2="852" y2="260" stroke="#333333" stroke-width="1"/>
+    <line x1="0" y1="288" x2="852" y2="288" stroke="#333333" stroke-width="1"/>
 
     <!-- Supertools vs Native -->
-    <text y="292" fill="#ffffff" font-size="12" font-weight="600">SUPERTOOLS vs NATIVE</text>
+    <text y="320" fill="#ffffff" font-size="12" font-weight="600">SUPERTOOLS vs NATIVE</text>
 
-    <g transform="translate(0, 316)">
+    <g transform="translate(0, 344)">
       <text x="0" y="0" fill="#888888" font-size="12">Time</text>
-      <text x="100" y="0" fill="#4ade80" font-size="12" font-weight="600">2.4x faster</text>
+      <text x="100" y="0" fill="#4ade80" font-size="12" font-weight="600">3.3x faster</text>
     </g>
 
-    <g transform="translate(220, 316)">
+    <g transform="translate(220, 344)">
       <text x="0" y="0" fill="#888888" font-size="12">Tokens</text>
-      <text x="80" y="0" fill="#4ade80" font-size="12" font-weight="600">71% fewer</text>
+      <text x="80" y="0" fill="#4ade80" font-size="12" font-weight="600">83% fewer</text>
     </g>
 
-    <g transform="translate(420, 316)">
+    <g transform="translate(420, 344)">
       <text x="0" y="0" fill="#888888" font-size="12">LLM Calls</text>
-      <text x="100" y="0" fill="#4ade80" font-size="12" font-weight="600">60% fewer</text>
+      <text x="100" y="0" fill="#4ade80" font-size="12" font-weight="600">67% fewer</text>
     </g>
 
     <!-- Supertools vs Anthropic Beta -->
-    <line x1="0" y1="344" x2="852" y2="344" stroke="#333333" stroke-width="1"/>
-    <text y="376" fill="#ffffff" font-size="12" font-weight="600">SUPERTOOLS vs ANTHROPIC BETA</text>
+    <line x1="0" y1="372" x2="852" y2="372" stroke="#333333" stroke-width="1"/>
+    <text y="404" fill="#ffffff" font-size="12" font-weight="600">SUPERTOOLS vs ANTHROPIC BETA</text>
 
-    <g transform="translate(0, 400)">
+    <g transform="translate(0, 428)">
       <text x="0" y="0" fill="#888888" font-size="12">Time</text>
-      <text x="100" y="0" fill="#4ade80" font-size="12" font-weight="600">4.5x faster</text>
+      <text x="100" y="0" fill="#4ade80" font-size="12" font-weight="600">7.6x faster</text>
     </g>
 
-    <g transform="translate(220, 400)">
+    <g transform="translate(220, 428)">
       <text x="0" y="0" fill="#888888" font-size="12">Tokens</text>
       <text x="80" y="0" fill="#4ade80" font-size="12" font-weight="600">92% fewer</text>
     </g>
+
+    <g transform="translate(420, 428)">
+      <text x="0" y="0" fill="#888888" font-size="12">LLM Calls</text>
+      <text x="100" y="0" fill="#4ade80" font-size="12" font-weight="600">88% fewer</text>
+    </g>
+
+    <!-- Note -->
+    <text y="480" fill="#666666" font-size="10">* Anthropic Beta code_execution requires API round-trip per tool call (32 calls = 32 round-trips = 77s)</text>
   </g>
 </svg>

@@ -20,7 +20,7 @@
  *   }),
  * ];
  *
- * const sandbox = await Sandbox.create('supertools-bun');
+ * const sandbox = await Sandbox.create('supertools-bun-014');
  * const client = supertools(new Anthropic(), { tools, sandbox });
  *
  * // Use exactly like the normal SDK
@@ -82,7 +82,7 @@ export function detectProvider(client: unknown): SupportedProvider | null {
  *
  * @example
  * ```ts
- * const sandbox = await Sandbox.create('supertools-bun');
+ * const sandbox = await Sandbox.create('supertools-bun-014');
  * const client = supertools(new Anthropic(), {
  *   tools: [queryDb, sendEmail],
  *   sandbox,

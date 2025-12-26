@@ -117,8 +117,8 @@ async function main() {
   }
 
   // Create sandbox upfront - you manage the lifecycle
-  // Use the default 'supertools-bun' or custom template - see DOCS on building custom templates for Supertools (should not be needed for most use cases)
-  const sandbox = await Sandbox.create("supertools-bun", {
+  // Use the default 'supertools-bun-014' or custom template - see DOCS on building custom templates for Supertools (should not be needed for most use cases)
+  const sandbox = await Sandbox.create("supertools-bun-014", {
     apiKey,
     timeoutMs: 2 * 60 * 1000,
   });

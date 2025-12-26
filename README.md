@@ -88,8 +88,8 @@ const getOrders = defineTool({
     status ? orders.filter(o => o.status === status) : orders,
 });
 
-// Main
-const sandbox = await Sandbox.create('supertools-bun').catch((e) => {
+// Main - use "supertools-bun-014" E2B template - should match your supertools version
+const sandbox = await Sandbox.create('supertools-bun-014').catch((e) => {
   console.error('Failed to create sandbox:', e);
   process.exit(1);
 });
@@ -131,6 +131,7 @@ const states = ['AL', 'AK', 'AZ', /* ... all 50 */];
 const results = {};
 
 for (const state of states) {
+  // be careful with this - using raw sql tool call can lead to injection or dangerous queries
   const data = await query_database({
     sql: `SELECT SUM(revenue) FROM sales WHERE state = '${state}'`
   });
@@ -182,7 +183,7 @@ import { supertools, defineTool, z } from '@supertools-ai/core';
 import { Sandbox } from 'e2b';
 import Anthropic from '@anthropic-ai/sdk';
 
-const sandbox = await Sandbox.create('supertools-bun');
+const sandbox = await Sandbox.create('supertools-bun-014');
 const client = supertools(new Anthropic(), {
   // Required
   tools: [defineTool({ name, description, parameters, execute })],
@@ -269,7 +270,7 @@ const myAdapter = {
   },
 };
 
-const sandbox = await Sandbox.create('supertools-bun');
+const sandbox = await Sandbox.create('supertools-bun-014');
 const executor = createExecutor({
   llm: myAdapter,
   tools: [/* your tools */],
@@ -343,7 +344,7 @@ console.log(result.result.output);  // stdout from execution
 7. Results flow back to the sandbox, code continues executing
 8. Final output returns in the expected SDK response format
 
-> **Note:** The Relay Server runs inside the pre-built `supertools-bun` E2B template. The Relay Client is included in the `@supertools-ai/core` package and runs on your host.
+> **Note:** The Relay Server runs inside the pre-built `supertools-bun-014` E2B template. The Relay Client is included in the `@supertools-ai/core` package and runs on your host.
 
 **Security:**
 - LLM-generated code runs in isolated cloud containers

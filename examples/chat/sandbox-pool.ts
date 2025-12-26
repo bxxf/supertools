@@ -30,7 +30,7 @@ export class SandboxPool {
     this.inFlight++;
     try {
       console.log("  [pool] creating new sandbox...");
-      const newSandbox = await Sandbox.create("supertools-bun", { timeoutMs: 5 * 60 * 1000 });
+      const newSandbox = await Sandbox.create("supertools-bun-014", { timeoutMs: 5 * 60 * 1000 });
       this.activeCount++;
       return newSandbox;
     } finally {

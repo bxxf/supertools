@@ -7,24 +7,9 @@
 export type { RelayConfig } from './types';
 export { DEFAULT_RELAY_CONFIG } from './types';
 
-// Protocol validation and types
-export {
-  parseMessage,
-  parseToolCall,
-  parseToolResult,
-  validateOutgoing,
-  safeParse,
-  ProtocolError,
-} from './utils/protocol';
-export type {
-  ToolCallMessage,
-  ToolResultMessage,
-  ErrorMessage,
-  PingMessage,
-  PongMessage,
-  ResultMessage,
-  Message,
-} from './utils/protocol';
+// Protocol (protobuf)
+export { encode, decode, isBinary } from './proto';
+export type { MessageType, DecodedMessage } from './proto';
 
 // Client
 export { RelayClient, createRelayClient } from './client';

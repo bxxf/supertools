@@ -20,7 +20,7 @@
  * });
  *
  * // Create sandbox and wrap your SDK client
- * const sandbox = await Sandbox.create('supertools-bun');
+ * const sandbox = await Sandbox.create('supertools-bun-014');
  * const client = supertools(new Anthropic(), { tools: [queryDb], sandbox });
  *
  * // Use exactly like normal - tools execute automatically

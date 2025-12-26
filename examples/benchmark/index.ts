@@ -21,13 +21,14 @@ import { supertools, defineTool, z } from "@supertools-ai/core";
 // -----------------------------------------------------------------------------
 
 const MODEL = "claude-sonnet-4-5";
-const MAX_TOKENS = 1024;
+const MAX_TOKENS = 2048;
 
 const BENCHMARKS = [
-  { name: "Simple (1 tool)", prompt: "Get all admin users" },
-  { name: "Parallel (2 tools)", prompt: "Get all users and all orders" },
-  { name: "Sequential (dependent)", prompt: "Get admin users, then get orders for each admin" },
-  { name: "Complex (logic + agg)", prompt: "Get all users, find admins, get their orders, calculate total revenue per admin" },
+  { name: "Simple (1 tool)", prompt: "Get all user IDs" },
+  { name: "Medium (3 tools)", prompt: "Get user IDs, then get user details for user 1 and user 2" },
+  { name: "Sequential (5 tools)", prompt: "Get user IDs, then get user details for the first 4 users" },
+  { name: "Heavy (10+ tools)", prompt: "Get all user IDs, then for each of the first 8 users: get their user details AND their orders. Calculate total spending per user." },
+  { name: "Insane (30+ tools)", prompt: "Get all user IDs. Then for EVERY user: call getUser to get their details, then call getUserOrders to get their orders. Calculate each user's total spending. Return a report with each user's name and total. You MUST call both getUser and getUserOrders for each user individually." },
 ];
 
 // -----------------------------------------------------------------------------
@@ -39,6 +40,18 @@ const DB = {
     { id: 1, name: "Alice", role: "admin" },
     { id: 2, name: "Bob", role: "user" },
     { id: 3, name: "Charlie", role: "user" },
+    { id: 4, name: "Diana", role: "admin" },
+    { id: 5, name: "Eve", role: "user" },
+    { id: 6, name: "Frank", role: "user" },
+    { id: 7, name: "Grace", role: "admin" },
+    { id: 8, name: "Henry", role: "user" },
+    { id: 9, name: "Ivy", role: "user" },
+    { id: 10, name: "Jack", role: "user" },
+    { id: 11, name: "Kate", role: "admin" },
+    { id: 12, name: "Liam", role: "user" },
+    { id: 13, name: "Mia", role: "user" },
+    { id: 14, name: "Noah", role: "user" },
+    { id: 15, name: "Olivia", role: "admin" },
   ],
   orders: [
     { id: 101, userId: 1, total: 150 },
@@ -46,6 +59,21 @@ const DB = {
     { id: 103, userId: 1, total: 200 },
     { id: 104, userId: 3, total: 50 },
     { id: 105, userId: 1, total: 175 },
+    { id: 106, userId: 4, total: 300 },
+    { id: 107, userId: 5, total: 125 },
+    { id: 108, userId: 6, total: 80 },
+    { id: 109, userId: 7, total: 450 },
+    { id: 110, userId: 8, total: 60 },
+    { id: 111, userId: 9, total: 95 },
+    { id: 112, userId: 10, total: 210 },
+    { id: 113, userId: 11, total: 180 },
+    { id: 114, userId: 12, total: 55 },
+    { id: 115, userId: 13, total: 320 },
+    { id: 116, userId: 14, total: 40 },
+    { id: 117, userId: 15, total: 275 },
+    { id: 118, userId: 4, total: 150 },
+    { id: 119, userId: 7, total: 200 },
+    { id: 120, userId: 11, total: 90 },
   ],
 };
 
@@ -67,23 +95,32 @@ interface Result {
 }
 
 // -----------------------------------------------------------------------------
-// Shared Tool Logic
+// Shared Tool Logic (no batch endpoints - forces individual calls)
 // -----------------------------------------------------------------------------
 
-function executeGetUsers(role?: string) {
-  return role ? DB.users.filter((u) => u.role === role) : DB.users;
+function executeGetUserIds() {
+  return DB.users.map((u) => u.id);
 }
 
-function executeGetOrders(userId?: number) {
-  return userId ? DB.orders.filter((o) => o.userId === userId) : DB.orders;
+function executeGetUser(id: number) {
+  const user = DB.users.find((u) => u.id === id);
+  if (!user) throw new Error(`User ${id} not found`);
+  return user;
+}
+
+function executeGetUserOrders(userId: number) {
+  // REQUIRES userId - no "get all" option
+  return DB.orders.filter((o) => o.userId === userId);
 }
 
 function executeTool(name: string, input: Record<string, unknown>): unknown {
   switch (name) {
-    case "getUsers":
-      return executeGetUsers(input.role as string | undefined);
-    case "getOrders":
-      return executeGetOrders(input.userId as number | undefined);
+    case "getUserIds":
+      return executeGetUserIds();
+    case "getUser":
+      return executeGetUser(input.id as number);
+    case "getUserOrders":
+      return executeGetUserOrders(input.userId as number);
     default:
       throw new Error(`Unknown tool: ${name}`);
   }
@@ -101,19 +138,29 @@ async function runNative(client: Anthropic, prompt: string): Promise<Metrics> {
 
   const tools: Anthropic.Tool[] = [
     {
-      name: "getUsers",
-      description: "Get users, optionally filtered by role",
+      name: "getUserIds",
+      description: "Get list of all user IDs. Returns array of numbers.",
       input_schema: {
         type: "object",
-        properties: { role: { type: "string", enum: ["admin", "user"] } },
+        properties: {},
       },
     },
     {
-      name: "getOrders",
-      description: "Get orders, optionally filtered by userId",
+      name: "getUser",
+      description: "Get a single user by ID. REQUIRES id parameter.",
       input_schema: {
         type: "object",
-        properties: { userId: { type: "number" } },
+        properties: { id: { type: "number", description: "User ID (required)" } },
+        required: ["id"],
+      },
+    },
+    {
+      name: "getUserOrders",
+      description: "Get orders for a specific user. REQUIRES userId parameter. No way to get all orders at once.",
+      input_schema: {
+        type: "object",
+        properties: { userId: { type: "number", description: "User ID (required)" } },
+        required: ["userId"],
       },
     },
   ];
@@ -169,20 +216,31 @@ async function runAnthropicBeta(client: Anthropic, prompt: string): Promise<Metr
   const tools: Anthropic.Beta.BetaTool[] = [
     { type: "code_execution_20250825", name: "code_execution" } as Anthropic.Beta.BetaTool,
     {
-      name: "getUsers",
-      description: "Get users, optionally filtered by role. Returns [{id, name, role}].",
+      name: "getUserIds",
+      description: "Get list of all user IDs. Returns array of numbers.",
       input_schema: {
         type: "object" as const,
-        properties: { role: { type: "string", enum: ["admin", "user"] } },
+        properties: {},
       },
       allowed_callers: ["code_execution_20250825"],
     } as Anthropic.Beta.BetaTool,
     {
-      name: "getOrders",
-      description: "Get orders, optionally filtered by userId. Returns [{id, userId, total}].",
+      name: "getUser",
+      description: "Get a single user by ID. REQUIRES id parameter. Returns {id, name, role}.",
       input_schema: {
         type: "object" as const,
-        properties: { userId: { type: "number" } },
+        properties: { id: { type: "number", description: "User ID (required)" } },
+        required: ["id"],
+      },
+      allowed_callers: ["code_execution_20250825"],
+    } as Anthropic.Beta.BetaTool,
+    {
+      name: "getUserOrders",
+      description: "Get orders for a specific user. REQUIRES userId. No batch endpoint. Returns [{id, userId, total}].",
+      input_schema: {
+        type: "object" as const,
+        properties: { userId: { type: "number", description: "User ID (required)" } },
+        required: ["userId"],
       },
       allowed_callers: ["code_execution_20250825"],
     } as Anthropic.Beta.BetaTool,
@@ -257,21 +315,30 @@ async function runSupertools(client: Anthropic, sandbox: Sandbox, prompt: string
 
   const tools = [
     defineTool({
-      name: "getUsers",
-      description: "Get users, optionally filtered by role",
-      parameters: z.object({ role: z.enum(["admin", "user"]).optional() }),
-      execute: async ({ role }) => {
+      name: "getUserIds",
+      description: "Get list of all user IDs. Returns array of numbers.",
+      parameters: z.object({}),
+      execute: async () => {
         toolCalls++;
-        return executeGetUsers(role);
+        return executeGetUserIds();
       },
     }),
     defineTool({
-      name: "getOrders",
-      description: "Get orders, optionally filtered by userId",
-      parameters: z.object({ userId: z.number().optional() }),
+      name: "getUser",
+      description: "Get a single user by ID. REQUIRES id parameter.",
+      parameters: z.object({ id: z.number().describe("User ID (required)") }),
+      execute: async ({ id }) => {
+        toolCalls++;
+        return executeGetUser(id);
+      },
+    }),
+    defineTool({
+      name: "getUserOrders",
+      description: "Get orders for a specific user. REQUIRES userId. No batch endpoint.",
+      parameters: z.object({ userId: z.number().describe("User ID (required)") }),
       execute: async ({ userId }) => {
         toolCalls++;
-        return executeGetOrders(userId);
+        return executeGetUserOrders(userId);
       },
     }),
   ];
@@ -380,7 +447,7 @@ async function main() {
   const client = new Anthropic();
 
   console.log("Creating E2B sandbox...");
-  const sandbox = await Sandbox.create("supertools-bun", { timeoutMs: 5 * 60 * 1000 });
+  const sandbox = await Sandbox.create("supertools-bun-014", { timeoutMs: 5 * 60 * 1000 });
   console.log("Sandbox ready");
 
   try {
