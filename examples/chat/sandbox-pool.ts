@@ -1,8 +1,5 @@
-// =============================================================================
-// Simple sandbox pool - you'd use Redis or similar in production to manage sandboxes
-// =============================================================================
-
 import { Sandbox } from 'e2b';
+import { SANDBOX_TEMPLATE } from '@supertools-ai/core';
 
 export class SandboxPool {
   private available: Sandbox[] = [];
@@ -30,7 +27,7 @@ export class SandboxPool {
     this.inFlight++;
     try {
       console.log("  [pool] creating new sandbox...");
-      const newSandbox = await Sandbox.create("supertools-bun-014", { timeoutMs: 5 * 60 * 1000 });
+      const newSandbox = await Sandbox.create(SANDBOX_TEMPLATE, { timeoutMs: 5 * 60 * 1000 });
       this.activeCount++;
       return newSandbox;
     } finally {

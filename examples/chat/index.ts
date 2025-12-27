@@ -1,27 +1,13 @@
 /**
  * Supertools - Interactive Chat Demo
  *
- * IMPORTANT: This example demonstrates programmatic tool execution, but a chat
- * interface is NOT the ideal use case for supertools. Here's why:
+ * This example shows how to use supertools for chat with conversational responses.
  *
- * WHAT SUPERTOOLS DOES:
- * - Generates code that calls your tools in a secure sandbox
- * - Returns raw data (JSON) - the LLM never sees the results
- * - Optimized for complex workflows with loops, conditionals, and multiple tools
- *
- * WHEN SUPERTOOLS SHINES:
- * - Batch operations: "Process all 100 orders and calculate stats"
- * - Complex logic: "For each admin user, get their orders and sum totals"
- * - Multi-tool workflows: "Query DB, filter results, send emails to matches"
- *
- * WHEN TO USE TRADITIONAL TOOL CALLING INSTEAD:
- * - Chatbots where natural language responses matter
- * - Simple 1-2 tool queries where LLM should interpret results
- * - Conversational UX where the LLM needs to see tool outputs
- *
- * This demo shows the raw behavior - responses are JSON, not natural language.
- * For a production chatbot, consider using the Anthropic SDK directly with
- * standard tool calling, or add a summarization step after execution.
+ * The flow:
+ * 1. User sends a message
+ * 2. Supertools generates code and executes tools in sandbox
+ * 3. Results are captured via onEvent callback
+ * 4. A second LLM call summarizes the results conversationally
  *
  * Run: bun run examples/chat/index.ts
  */
@@ -32,12 +18,9 @@ import { supertools } from "@supertools-ai/core";
 import { tools } from "./tools";
 import { SandboxPool } from "./sandbox-pool";
 
-// =============================================================================
-// Chat loop
-// =============================================================================
-
 async function chat(
   pool: SandboxPool,
+  anthropic: Anthropic,
   messages: Anthropic.MessageParam[],
   input: string
 ) {
@@ -48,7 +31,7 @@ async function chat(
   try {
     let executionResult: unknown = null;
 
-    const client = supertools(new Anthropic(), {
+    const client = supertools(anthropic, {
       tools,
       sandbox,
       debug: false,
@@ -62,32 +45,48 @@ async function chat(
 
     console.log("\nAssistant: thinking...\n");
 
-    const response = await client.messages.create({
+    await client.messages.create({
       model: "claude-sonnet-4-5",
       max_tokens: 1024,
       system:
-        "You have access to a user/order database. Use the tools to answer questions. Be concise.",
+        "You have access to a user/order database. Use the tools to answer questions.",
       messages,
     });
 
-    // NOTE: With programmatic execution, the LLM generates code but never sees
-    // the execution results. That's why we show the raw JSON result here.
-    // For natural language responses, you'd need to either:
-    // 1. Use traditional tool calling (LLM sees tool results)
-    // 2. Add a summarization step (extra LLM call to format results)
+    // If we got results from tool execution, summarize them with streaming
     if (executionResult) {
-      console.log(`Assistant:\n${JSON.stringify(executionResult, null, 2)}\n`);
-      messages.push({
-        role: "assistant",
-        content: JSON.stringify(executionResult),
+      process.stdout.write("Assistant: ");
+
+      let fullText = "";
+      const stream = anthropic.messages.stream({
+        model: "claude-sonnet-4-5",
+        max_tokens: 1024,
+        system: "You are a helpful assistant. Summarize the data concisely in natural language. Be conversational.",
+        messages: [
+          ...messages,
+          {
+            role: "assistant",
+            content: `I executed the tools and got this result: ${JSON.stringify(executionResult)}`,
+          },
+          {
+            role: "user",
+            content: "Now summarize that result for me in a natural, conversational way.",
+          },
+        ],
       });
+
+      for await (const event of stream) {
+        if (event.type === "content_block_delta" && event.delta.type === "text_delta") {
+          process.stdout.write(event.delta.text);
+          fullText += event.delta.text;
+        }
+      }
+
+      console.log("\n");
+      messages.push({ role: "assistant", content: fullText });
     } else {
-      const text = response.content
-        .filter((b): b is Anthropic.TextBlock => b.type === "text")
-        .map((b) => b.text)
-        .join("\n");
-      console.log(`Assistant: ${text}\n`);
-      messages.push({ role: "assistant", content: text });
+      console.log("Assistant: I couldn't find any relevant data for that query.\n");
+      messages.push({ role: "assistant", content: "I couldn't find any relevant data for that query." });
     }
   } finally {
     await pool.release(sandbox);
@@ -96,12 +95,12 @@ async function chat(
 
 async function main() {
   const pool = new SandboxPool(3);
+  const anthropic = new Anthropic();
   const messages: Anthropic.MessageParam[] = [];
 
   console.log("\n" + "=".repeat(60));
   console.log("Supertools Chat Demo");
   console.log("=".repeat(60));
-  console.log("\nNOTE: Responses are raw JSON (see comments in source for why)");
   console.log("\nData: users (Alice, Bob, Charlie) + orders");
   console.log("Try: 'Get all orders' or 'Total revenue?' or 'Who spent the most?'");
   console.log("Ctrl+C to exit\n");
@@ -117,7 +116,7 @@ async function main() {
       if (!input.trim()) continue;
 
       try {
-        await chat(pool, messages, input);
+        await chat(pool, anthropic, messages, input);
       } catch (error) {
         console.error("Error:", error instanceof Error ? error.message : error);
       }

@@ -3,13 +3,12 @@
  *
  * WebSocket relay with Protocol Buffers encoding for bidirectional
  * communication between host and sandbox.
+ *
+ * Supports MCP-style tool routing via mcp.call('server.tool', args)
  */
 
 import { encode, decode, type MessageType, type DecodedMessage } from './proto/codec';
-
-// =============================================================================
-// Configuration
-// =============================================================================
+import { createMcpRouter, type McpRouter } from './mcp-router';
 
 const CONFIG = {
   port: 8080,
@@ -20,13 +19,12 @@ const CONFIG = {
 } as const;
 
 const log = {
-  info: (...args: unknown[]) => CONFIG.debug && console.error('[Relay]', ...args),
+  info: (...args: unknown[]) => CONFIG.debug && console.log('[Relay]', ...args),
   error: (...args: unknown[]) => console.error('[Relay:Error]', ...args),
 };
 
-// =============================================================================
-// Types
-// =============================================================================
+// Cached for performance - avoid recreating on each execution
+const AsyncFunction = Object.getPrototypeOf(async function () {}).constructor;
 
 interface PendingCall {
   resolve: (result: { success: boolean; result?: unknown; error?: string }) => void;
@@ -37,10 +35,6 @@ interface Socket {
   send(data: Uint8Array): void;
   close(): void;
 }
-
-// =============================================================================
-// Session
-// =============================================================================
 
 class Session {
   private socket: Socket | null = null;
@@ -101,19 +95,21 @@ class Session {
   }
 }
 
-// =============================================================================
-// Executor
-// =============================================================================
-
 class Executor {
-  constructor(private readonly session: Session) {}
+  private mcpRouter: McpRouter;
+
+  constructor(private readonly session: Session) {
+    // Create MCP router with remote call function
+    this.mcpRouter = createMcpRouter(
+      (tool, args) => this.callRemote(tool, args),
+      CONFIG.debug
+    );
+  }
 
   async run(code: string, remoteTools: string[], localTools: Record<string, string>): Promise<void> {
     try {
       const bindings = this.buildBindings(remoteTools, localTools);
       const names = Object.keys(bindings);
-
-      const AsyncFunction = Object.getPrototypeOf(async function () {}).constructor;
       const fn = new AsyncFunction(...names, code);
       const result = await fn(...names.map((n) => bindings[n]));
 
@@ -126,18 +122,58 @@ class Executor {
     }
   }
 
-  private buildBindings(remoteTools: string[], localTools: Record<string, string>): Record<string, Function> {
-    const bindings: Record<string, Function> = {};
-
-    for (const name of remoteTools) {
-      bindings[name] = (args: Record<string, unknown> = {}) => this.callRemote(name, args);
+  private buildBindings(_remoteTools: string[], localTools: Record<string, string>): Record<string, unknown> {
+    // Register local tools as a 'local' MCP server
+    if (Object.keys(localTools).length > 0) {
+      this.mcpRouter.registerServer('local', this.createLocalServer(localTools));
     }
 
+    // MCP router is the only way to call tools
+    // All tools are accessed via: mcp.call('server.tool_name', { args })
+    return {
+      mcp: {
+        call: (fullName: string, args: Record<string, unknown> = {}) =>
+          this.mcpRouter.call(fullName, args),
+      },
+    };
+  }
+
+  /**
+   * Create a local MCP server that executes tools directly in sandbox
+   */
+  private createLocalServer(localTools: Record<string, string>): {
+    call(method: string, args: Record<string, unknown>): Promise<unknown>;
+    close(): Promise<void>;
+  } {
+    const compiledTools = new Map<string, Function>();
+
+    // Compile all local tools using Function constructor (safer than eval)
     for (const [name, code] of Object.entries(localTools)) {
-      bindings[name] = this.compileLocal(name, code);
+      const trimmed = code.trim();
+      if (!/^(async\s+)?function\s*\(/.test(trimmed) && !/^\(.*\)\s*=>/.test(trimmed)) {
+        throw new Error(`Invalid local tool: ${name}`);
+      }
+      const fn = new Function(`return (${code})`)();
+      if (typeof fn !== 'function') {
+        throw new Error(`Not a function: ${name}`);
+      }
+      compiledTools.set(name, fn);
+      log.info(`Registered local tool: ${name}`);
     }
 
-    return bindings;
+    return {
+      async call(method: string, args: Record<string, unknown>): Promise<unknown> {
+        const fn = compiledTools.get(method);
+        if (!fn) {
+          throw new Error(`Unknown local tool: ${method}`);
+        }
+        log.info(`Local tool call: ${method}`);
+        return fn(args);
+      },
+      async close(): Promise<void> {
+        compiledTools.clear();
+      },
+    };
   }
 
   private async callRemote(name: string, args: Record<string, unknown>): Promise<unknown> {
@@ -151,25 +187,7 @@ class Executor {
     if (result.success) return result.result;
     throw new Error(`${name}: ${result.error ?? 'Tool call failed'}`);
   }
-
-  private compileLocal(name: string, code: string): Function {
-    const trimmed = code.trim();
-    if (!/^(async\s+)?function\s*\(/.test(trimmed) && !/^\(.*\)\s*=>/.test(trimmed)) {
-      throw new Error(`Invalid local tool: ${name}`);
-    }
-
-    const fn = eval(`(${code})`);
-    if (typeof fn !== 'function') {
-      throw new Error(`Not a function: ${name}`);
-    }
-
-    return fn;
-  }
 }
-
-// =============================================================================
-// Server
-// =============================================================================
 
 class RelayServer {
   private readonly session = new Session();
@@ -254,9 +272,5 @@ class RelayServer {
     }
   }
 }
-
-// =============================================================================
-// Entry Point
-// =============================================================================
 
 new RelayServer().start();

@@ -19,6 +19,7 @@ import {
   defineTool,
   z,
   type ExecutionEvent,
+  SANDBOX_TEMPLATE,
 } from "@supertools-ai/core";
 
 // See schemas.ts for schema definitions and types
@@ -117,8 +118,8 @@ async function main() {
   }
 
   // Create sandbox upfront - you manage the lifecycle
-  // Use the default 'supertools-bun-014' or custom template - see DOCS on building custom templates for Supertools (should not be needed for most use cases)
-  const sandbox = await Sandbox.create("supertools-bun-014", {
+  // Use the default SANDBOX_TEMPLATE or custom template - see DOCS on building custom templates for Supertools (should not be needed for most use cases)
+  const sandbox = await Sandbox.create(SANDBOX_TEMPLATE, {
     apiKey,
     timeoutMs: 2 * 60 * 1000,
   });
@@ -128,14 +129,14 @@ async function main() {
     const client = supertools(new Anthropic(), {
       tools: [getUsers, getOrders, calculateStats],
       sandbox,
-      debug: true,
+      debug: false,
       onEvent: handleEvent,
     });
 
     // Use exactly like the normal Anthropic SDK
     // Behind the scenes: 1 API call → generates code → runs in sandbox → calls all tools
     await client.messages.create({
-      model: "claude-sonnet-4-5",
+      model: "claude-haiku-4-5",
       max_tokens: 4096,
       messages: [
         {
@@ -184,7 +185,7 @@ const handleEvent = (event: ExecutionEvent) => {
       console.log(`  → Calling ${event.tool}...`);
       break;
     case "tool_result":
-      console.log(`  ✓ ${event.tool} completed (${event.durationMs}ms)`);
+      console.log(`  ✓ ${event.tool} completed (${event.durationMs}ms) with result: ${JSON.stringify(event.result, null, 2).replace(/\n/g, "").replace(/\s+/g, " ")}`);
       break;
     case "result":
       console.log("\n📊 Result:");

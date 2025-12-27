@@ -50,112 +50,269 @@ User Request → LLM generates code → Sandbox executes → Result
 bun add @supertools-ai/core @anthropic-ai/sdk e2b
 ```
 
-Create a `.env` file with your API keys:
 ```bash
-ANTHROPIC_API_KEY=your-key  # Get at console.anthropic.com
-E2B_API_KEY=your-key        # Get at e2b.dev
+# .env
+ANTHROPIC_API_KEY=your-key  # console.anthropic.com
+E2B_API_KEY=your-key        # e2b.dev
 ```
 
-Create `index.ts` and run with `bun run index.ts`:
+### 1. Define a tool
 
 ```typescript
-import { supertools, defineTool, z, SANDBOX_TEMPLATE } from '@supertools-ai/core';
-import { Sandbox } from 'e2b';
-import Anthropic from '@anthropic-ai/sdk';
+import { defineTool, z } from '@supertools-ai/core';
 
-// Sample data
 const orders = [
   { id: 1, customer: 'Alice', total: 150, status: 'completed' },
   { id: 2, customer: 'Bob', total: 75, status: 'pending' },
-  { id: 3, customer: 'Alice', total: 200, status: 'completed' },
-  { id: 4, customer: 'Charlie', total: 50, status: 'completed' },
 ];
 
-// Define tools with Zod schemas
 const getOrders = defineTool({
   name: 'getOrders',
   description: 'Get orders, optionally filtered by status',
   parameters: z.object({
     status: z.enum(['pending', 'completed']).optional(),
   }),
-  returns: z.array(z.object({
-    id: z.number(),
-    customer: z.string(),
-    total: z.number(),
-    status: z.string(),
-  })),
   execute: async ({ status }) =>
     status ? orders.filter(o => o.status === status) : orders,
 });
-
-// SANDBOX_TEMPLATE is exported by supertools - always use it to ensure compatibility
-const sandbox = await Sandbox.create(SANDBOX_TEMPLATE).catch((e) => {
-  console.error('Failed to create sandbox:', e);
-  process.exit(1);
-});
-
-try {
-  const client = supertools(new Anthropic(), {
-    tools: [getOrders],
-    sandbox,
-    onEvent: (e) => {
-      if (e.type === 'tool_call') console.log(`→ ${e.tool}()`);
-      if (e.type === 'result') console.log('Result:', e.data);
-    },
-  });
-
-  await client.messages.create({
-    model: 'claude-sonnet-4-5',
-    max_tokens: 1024,
-    messages: [{
-      role: 'user',
-      content: 'Get all completed orders and calculate the total revenue',
-    }],
-  });
-} finally {
-  await sandbox.kill();
-}
 ```
 
-**What happens:** The LLM writes code that calls `getOrders()`, loops through results, and calculates the sum — all in one API call.
+### 2. Wrap your client
+
+```typescript
+import { supertools, SANDBOX_TEMPLATE } from '@supertools-ai/core';
+import { Sandbox } from 'e2b';
+import Anthropic from '@anthropic-ai/sdk';
+
+const sandbox = await Sandbox.create(SANDBOX_TEMPLATE);
+
+const client = supertools(new Anthropic(), {
+  tools: [getOrders],
+  sandbox,
+  onEvent: (e) => {
+    if (e.type === 'result') console.log('Result:', e.data);
+  },
+});
+```
+
+### 3. Use it like normal
+
+```typescript
+await client.messages.create({
+  model: 'claude-sonnet-4-5',
+  max_tokens: 1024,
+  messages: [{
+    role: 'user',
+    content: 'Get completed orders and calculate total revenue',
+  }],
+});
+
+await sandbox.kill(); // Clean up when done
+```
+
+**What happens:** The LLM writes code that calls `getOrders()`, filters results, and calculates the sum — all in one API call.
 
 ## How It Works
 
 When you ask: *"Query sales for all 50 states, find top 5, email a report"*
 
-The LLM generates JavaScript that runs in a secure sandbox:
+### Traditional Tool Calling
+
+The LLM calls tools one by one, each requiring an API round-trip:
+
+```
+User: "Query sales for all 50 states..."
+  ↓
+LLM → tool_use: query_database({state: 'AL'})  → API call #1
+  ↓ result goes back to LLM context
+LLM → tool_use: query_database({state: 'AK'})  → API call #2
+  ↓ result goes back to LLM context
+... 48 more API calls, all results accumulating in context ...
+  ↓
+LLM → tool_use: send_email({...})              → API call #51
+  ↓
+LLM: "Done! Here's your report..."             → API call #52
+```
+
+**Problems:** 52 API calls, all 50 query results in LLM context (expensive), slow.
+
+### With Supertools
+
+The LLM generates code once, which runs in a sandbox:
+
+```
+User: "Query sales for all 50 states..."
+  ↓
+LLM generates JavaScript                       → API call #1
+  ↓
+Sandbox executes code:
+  ├── query_database('AL') ─┐
+  ├── query_database('AK')  ├── WebSocket (fast, parallel)
+  ├── ... 48 more ...       │
+  ├── send_email()         ─┘
+  └── return { topStates, reportSent }
+  ↓
+Result returned to your app                    → Done!
+```
+
+**The generated code:**
 
 ```javascript
-// All 50 queries execute without LLM round-trips
 const states = ['AL', 'AK', 'AZ', /* ... all 50 */];
 const results = {};
 
 for (const state of states) {
-  // be careful with this - using raw sql tool call can lead to injection or dangerous queries
-  const data = await query_database({
+  const data = await mcp.call('host.query_database', {
     sql: `SELECT SUM(revenue) FROM sales WHERE state = '${state}'`
   });
   results[state] = data[0].sum;
 }
 
-// Process data locally (no tokens consumed)
 const top5 = Object.entries(results)
   .sort((a, b) => b[1] - a[1])
   .slice(0, 5);
 
-// Format and send
-const report = top5.map(([state, rev]) => `${state}: $${rev.toLocaleString()}`).join('\n');
-await send_email({
+await mcp.call('host.send_email', {
   to: 'ceo@company.com',
   subject: 'Top 5 States Report',
-  body: report
+  body: top5.map(([state, rev]) => `${state}: $${rev}`).join('\n')
 });
 
-// Return the result as JSON
 return { topStates: top5, reportSent: true };
 ```
 
-**Result:** 51 tool calls execute in the sandbox with 1 LLM call. Traditional approach would need multiple round-trips with all results in context.
+**Result:** 1 API call, 51 tool executions via WebSocket, data processing in sandbox (free), only final result returned.
+
+## Architecture
+
+```
+┌───────────────────────────────────────────────────────────────────┐
+│                         Your Application                          │
+│                                                                   │
+│  const client = supertools(new Anthropic(), { tools, sandbox });  │
+│  const response = await client.messages.create({...});            │
+└─────────────────────────────────┬─────────────────────────────────┘
+                                  │
+                                  ▼
+                   ┌────────────────────────────┐
+                   │     Supertools Wrapper     │
+                   │   (intercepts SDK calls)   │
+                   └──────────────┬─────────────┘
+                                  │ LLM generates JavaScript
+                                  ▼
+┌───────────────────────────────────────────────────────────────────┐
+│                        E2B Cloud Sandbox                          │
+│  ┌─────────────────────────────────────────────────────────────┐  │
+│  │                       Generated Code                        │  │
+│  │                                                             │  │
+│  │   const [orders, users] = await Promise.all([               │  │
+│  │     mcp.call('host.get_orders', {}),                        │  │
+│  │     mcp.call('host.get_users', {})                          │  │
+│  │   ]);                                                       │  │
+│  │   return { orders, users };                                 │  │
+│  │                                                             │  │
+│  └────────────────────────────┬────────────────────────────────┘  │
+│                               │ tool calls via WebSocket          │
+│  ┌────────────────────────────▼────────────────────────────────┐  │
+│  │                    Relay Server (Bun)                       │  │
+│  │                  WebSocket bridge to host                   │  │
+│  └────────────────────────────┬────────────────────────────────┘  │
+└───────────────────────────────┼───────────────────────────────────┘
+                                │ WebSocket (authenticated)
+                                ▼
+                   ┌────────────────────────────┐
+                   │        Relay Client        │
+                   │    (runs on your host)     │
+                   └──────────────┬─────────────┘
+                                  │
+                                  ▼
+                   ┌────────────────────────────┐
+                   │         Your Tools         │
+                   │   get_orders, get_users    │
+                   │      (execute locally)     │
+                   └────────────────────────────┘
+```
+
+**Step by step:**
+
+1. You wrap your SDK client with `supertools()`
+2. When you call `client.messages.create()`, supertools intercepts it
+3. The LLM generates JavaScript code that uses `mcp.call()` for tools
+4. Code runs in an isolated E2B sandbox (secure, no host access)
+5. Tool calls relay back to your machine via WebSocket
+6. Your tools execute locally with full access to your systems
+7. Results flow back to the sandbox, code continues executing
+8. Final output returns in the expected SDK response format
+
+**Security:**
+
+- LLM-generated code runs in isolated cloud containers
+- Your tools run locally — the sandbox never has direct access
+- WebSocket authenticated with cryptographically secure tokens
+- Tokens are single-use and expire with the sandbox
+
+> **Note:** The Relay Server runs inside the pre-built `SANDBOX_TEMPLATE`. The Relay Client is included in `@supertools-ai/core` and runs on your host.
+
+## MCP Under the Hood
+
+Supertools uses the [Model Context Protocol (MCP)](https://modelcontextprotocol.io) internally as a unified interface for tool communication. Here's why and how:
+
+### Why MCP?
+
+MCP provides a standardized way to expose tools to LLMs. Instead of inventing a custom protocol, Supertools converts your Zod-defined tools into MCP format:
+
+```
+Your Tool (Zod)  →  MCP Tool Definition  →  LLM sees it  →  Generates mcp.call()
+```
+
+### How tools are exposed
+
+When you define a tool with `defineTool()`, it gets converted to MCP format with:
+- **Name**: `host.your_tool_name` (prefixed with server name)
+- **Description**: Your tool's description
+- **Input schema**: JSON Schema derived from your Zod parameters
+- **Output schema**: JSON Schema from your `returns` Zod schema (if provided)
+
+The LLM then generates code using the `mcp.call()` pattern:
+
+```javascript
+// Your tool: getOrders
+// Becomes: mcp.call('host.get_orders', { status: 'completed' })
+
+const [orders, users] = await Promise.all([
+  mcp.call('host.get_orders', { status: 'completed' }),
+  mcp.call('host.get_users', {})
+]);
+```
+
+### Host vs Local tools
+
+Tools can run in two places:
+
+| Type | Prefix | Where it runs | Use case |
+|------|--------|---------------|----------|
+| **Host** | `host.` | Your machine | DB queries, API calls, secrets |
+| **Local** | `local.` | In sandbox | Pure computation, data transforms |
+
+```typescript
+// Host tool - runs on your machine (default)
+const queryDb = defineTool({
+  name: 'queryDb',
+  execute: async ({ sql }) => db.query(sql), // Has access to your DB
+});
+
+// Local tool - runs in sandbox (no network round-trip)
+const calculateStats = defineTool({
+  name: 'calculateStats',
+  local: true,  // ← This makes it local
+  execute: async ({ values }) => ({
+    sum: values.reduce((a, b) => a + b, 0),
+    mean: values.reduce((a, b) => a + b, 0) / values.length,
+  }),
+});
+```
+
+Local tools are faster because they don't need a WebSocket round-trip back to your host. Use them for pure computation when all data is already in the sandbox.
 
 ## Why Supertools?
 
@@ -281,76 +438,6 @@ const result = await executor.run('Your natural language request');
 console.log(result.code);           // Generated JavaScript
 console.log(result.result.output);  // stdout from execution
 ```
-
-## Architecture
-
-```
-┌───────────────────────────────────────────────────────────────────┐
-│                         Your Application                          │
-│                                                                   │
-│  const client = supertools(new Anthropic(), { tools, sandbox });  │
-│  const response = await client.messages.create({...});            │
-└─────────────────────────────────┬─────────────────────────────────┘
-                                  │
-                                  ▼
-                   ┌────────────────────────────┐
-                   │     Supertools Wrapper     │
-                   │   (intercepts SDK calls)   │
-                   └──────────────┬─────────────┘
-                                  │ generates JavaScript
-                                  ▼
-┌───────────────────────────────────────────────────────────────────┐
-│                        E2B Cloud Sandbox                          │
-│  ┌─────────────────────────────────────────────────────────────┐  │
-│  │                       Generated Code                        │  │
-│  │                                                             │  │
-│  │   for (const r of regions) {                                │  │
-│  │     const data = await query_db({ region: r });             │  │
-│  │     results.push(data);                                     │  │
-│  │   }                                                         │  │
-│  │   await send_email({ to: 'ceo', body: summary });           │  │
-│  │   return { regions: results, emailSent: true };             │  │
-│  │                                                             │  │
-│  └────────────────────────────┬────────────────────────────────┘  │
-│                               │ tool calls via WebSocket          │
-│  ┌────────────────────────────▼────────────────────────────────┐  │
-│  │                    Relay Server (Bun)                       │  │
-│  │                  WebSocket bridge to host                   │  │
-│  └────────────────────────────┬────────────────────────────────┘  │
-└───────────────────────────────┼───────────────────────────────────┘
-                                │ WebSocket (authenticated)
-                                ▼
-                   ┌────────────────────────────┐
-                   │        Relay Client        │
-                   │    (runs on your host)     │
-                   └──────────────┬─────────────┘
-                                  │
-                                  ▼
-                   ┌────────────────────────────┐
-                   │         Your Tools         │
-                   │    query_db, send_email    │
-                   │      (execute locally)     │
-                   └────────────────────────────┘
-```
-
-**How it works:**
-
-1. You wrap your SDK client with `supertools()`
-2. When you call `client.messages.create()`, supertools intercepts it
-3. The LLM generates JavaScript code that calls your tools
-4. Code runs in an isolated E2B sandbox (secure, no host access)
-5. Tool calls are relayed back to your machine via WebSocket
-6. Your tools execute locally with full access to your systems
-7. Results flow back to the sandbox, code continues executing
-8. Final output returns in the expected SDK response format
-
-> **Note:** The Relay Server runs inside the pre-built `supertools-bun-014` E2B template. The Relay Client is included in the `@supertools-ai/core` package and runs on your host.
-
-**Security:**
-- LLM-generated code runs in isolated cloud containers
-- Your tools run locally — the sandbox never has direct access
-- WebSocket authenticated with cryptographically secure tokens
-- Tokens are single-use and expire with the sandbox
 
 ## When to Use
 

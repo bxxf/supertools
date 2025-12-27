@@ -2,9 +2,9 @@
  * Programmatic Executor
  *
  * Orchestrates the complete flow:
- * 1. LLM generates JavaScript code
+ * 1. LLM generates JavaScript code using MCP tool definitions
  * 2. Code executes in secure E2B Bun sandbox
- * 3. Tool calls relay back to host via WebSocket
+ * 3. Tool calls relay back to host via MCP router
  * 4. Results return to user
  */
 
@@ -12,12 +12,11 @@ import { randomUUID } from 'node:crypto';
 import type { Sandbox } from 'e2b';
 import { RelayClient } from './relay/client';
 import { DEFAULT_RELAY_CONFIG, type RelayConfig } from './relay/types';
-import { buildSystemPrompt, extractCode } from './prompts';
-import { generateTypeHints } from './utils/type-hints';
 import { RelayConnectionError, CodeGenerationError } from './utils/errors';
-import type { NormalizedTool, AnyTool } from './tool';
+import type { NormalizedTool } from './tool';
 import { normalizeTools } from './tool';
 import type { ExecutorConfig, ExecutionResult, ProgrammaticResult, LLMAdapter, ExecutionEvent } from './types';
+import { zodToolsToMcp, buildMcpSystemPrompt, extractCode, type McpTool } from './mcp';
 
 export interface CreateExecutorOptions extends ExecutorConfig {
   readonly llm: LLMAdapter;
@@ -28,24 +27,30 @@ export function createExecutor(options: CreateExecutorOptions): ProgrammaticExec
 }
 
 export class ProgrammaticExecutor {
-  private readonly originalTools: readonly AnyTool[];
   private readonly normalizedTools: NormalizedTool[];
+  private readonly mcpTools: McpTool[];
   private readonly toolsMap: Map<string, NormalizedTool>;
   private readonly llm: LLMAdapter;
   private readonly sandbox: Sandbox;
-  private readonly instructions?: string;
   private readonly debug: boolean;
   private readonly onEvent?: (event: ExecutionEvent) => void;
+  private readonly systemPrompt: string;
+  private readonly localToolsCache: Record<string, string>;
 
   constructor(options: CreateExecutorOptions) {
-    this.originalTools = options.tools;
     this.normalizedTools = normalizeTools(options.tools);
     this.toolsMap = new Map(this.normalizedTools.map((t) => [t.name, t]));
     this.llm = options.llm;
     this.sandbox = options.sandbox;
-    this.instructions = options.instructions;
     this.debug = options.debug ?? false;
     this.onEvent = options.onEvent;
+    this.mcpTools = zodToolsToMcp(options.tools, { serverName: 'host' });
+    // Pre-compute system prompt once
+    this.systemPrompt = buildMcpSystemPrompt(this.mcpTools, options.instructions);
+    // Pre-compute local tools map once
+    this.localToolsCache = Object.fromEntries(
+      this.normalizedTools.filter((t) => t.localCode).map((t) => [t.name, t.localCode!])
+    );
   }
 
   private emit(event: ExecutionEvent): void {
@@ -54,10 +59,10 @@ export class ProgrammaticExecutor {
 
   async run(userRequest: string): Promise<ProgrammaticResult> {
     const totalStart = Date.now();
-    const toolDocs = generateTypeHints(this.originalTools);
-    const systemPrompt = buildSystemPrompt(toolDocs, this.instructions);
 
-    this.log('Generating code for:', userRequest.slice(0, 100));
+    if (this.debug) {
+      this.log('Generating code for:', userRequest);
+    }
 
     const token = randomUUID();
     const relayConfig = { ...DEFAULT_RELAY_CONFIG, token, debug: this.debug };
@@ -70,7 +75,7 @@ export class ProgrammaticExecutor {
     const relayConnectStart = Date.now();
 
     const [generated, relayClient] = await Promise.all([
-      this.generateCode(userRequest, systemPrompt).then((r) => {
+      this.generateCode(userRequest, this.systemPrompt).then((r) => {
         this.logTiming('Code generation', codeGenStart);
         return r;
       }),
@@ -81,8 +86,9 @@ export class ProgrammaticExecutor {
     ]);
 
     const code = extractCode(generated.code);
-    this.log('Generated code:', code.slice(0, 200).replace(/\n/g, ' '));
-    this.log('LLM Usage:', generated.usage);
+    this.log('Generated code:', code.replace(/\s+/g, ' '));
+    this.log('LLM Usage (in tokens):', generated.usage?.inputTokens);
+    this.log('LLM Usage (out tokens):', generated.usage?.outputTokens);
 
     this.emit({ type: 'code_generated', code, explanation: generated.explanation });
     this.emit({ type: 'sandbox_ready', sandboxId: this.sandbox.sandboxId });
@@ -121,13 +127,10 @@ export class ProgrammaticExecutor {
       this.log('Executing code directly via relay...');
       const execStart = Date.now();
 
-      // Send code to relay for direct execution (no file write, no process spawn)
-      // Remote tools call back to host, local tools run directly in sandbox
-      const remoteTools = this.normalizedTools.filter((t) => !t.localCode).map((t) => t.name);
-      const localTools = Object.fromEntries(
-        this.normalizedTools.filter((t) => t.localCode).map((t) => [t.name, t.localCode!])
-      );
-      relayClient.execute(code, remoteTools, localTools);
+      // Send code to relay with local tool code for sandbox execution
+      // Host tools: mcp.call('host.tool_name', args)
+      // Local tools: mcp.call('local.tool_name', args)
+      relayClient.execute(code, [], this.localToolsCache);
 
       // Wait for result or error (use configured timeout)
       const timeoutMs = relayConfig.timeout * 1000;
@@ -160,8 +163,12 @@ export class ProgrammaticExecutor {
     return this.normalizedTools;
   }
 
+  getMcpTools(): readonly McpTool[] {
+    return this.mcpTools;
+  }
+
   getToolDocumentation(): string {
-    return generateTypeHints(this.originalTools);
+    return this.systemPrompt.split('<available_tools>')[1]?.split('</available_tools>')[0]?.trim() ?? '';
   }
 
   private async generateCode(request: string, systemPrompt: string) {

@@ -26,6 +26,7 @@ export interface ToolDefinition<
   /**
    * If true, tool runs locally in sandbox (no network round-trip).
    * Use for pure computation that doesn't need host resources.
+   * Called via: mcp.call('local.tool_name', args)
    */
   readonly local?: boolean;
 }

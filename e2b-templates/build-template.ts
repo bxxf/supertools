@@ -9,7 +9,7 @@
 import { Template, defaultBuildLogger } from 'e2b';
 import { template } from './template';
 
-const TEMPLATE_ALIAS = 'supertools-bun-014';
+const TEMPLATE_ALIAS = 'supertools-bun-020';
 
 async function main() {
   console.log('Building E2B template with Bun runtime...');

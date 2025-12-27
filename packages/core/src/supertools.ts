@@ -6,7 +6,7 @@
  *
  * @example
  * ```ts
- * import { supertools, defineTool, z } from '@supertools-ai/core';
+ * import { supertools, defineTool, z, SANDBOX_TEMPLATE } from '@supertools-ai/core';
  * import { Sandbox } from 'e2b';
  * import Anthropic from '@anthropic-ai/sdk';
  *
@@ -20,7 +20,7 @@
  *   }),
  * ];
  *
- * const sandbox = await Sandbox.create('supertools-bun-014');
+ * const sandbox = await Sandbox.create(SANDBOX_TEMPLATE, { timeoutMs: 5 * 60 * 1000 });
  * const client = supertools(new Anthropic(), { tools, sandbox });
  *
  * // Use exactly like the normal SDK
@@ -82,7 +82,7 @@ export function detectProvider(client: unknown): SupportedProvider | null {
  *
  * @example
  * ```ts
- * const sandbox = await Sandbox.create('supertools-bun-014');
+ * const sandbox = await Sandbox.create(SANDBOX_TEMPLATE, { timeoutMs: 5 * 60 * 1000 });
  * const client = supertools(new Anthropic(), {
  *   tools: [queryDb, sendEmail],
  *   sandbox,

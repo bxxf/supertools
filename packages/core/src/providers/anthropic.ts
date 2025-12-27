@@ -97,7 +97,6 @@ function createAnthropicAdapter(client: AnthropicClient, model: string): LLMAdap
 
       return {
         code: textContent.text,
-        rawResponse: JSON.stringify(response),
         usage: {
           inputTokens: response.usage.input_tokens,
           outputTokens: response.usage.output_tokens,
@@ -119,8 +118,28 @@ export function wrapAnthropicClient<T extends AnthropicClient>(
   tools: readonly AnyTool[],
   config: SupertoolsConfig
 ): T {
-  normalizeTools(tools); // Validate tools
+  normalizeTools(tools); // Validate tools once
   const log = config.debug ? (...args: unknown[]) => console.log('[Supertools]', ...args) : () => {};
+
+  // Cache executor per model to avoid re-normalizing tools on every request
+  const executorCache = new Map<string, ProgrammaticExecutor>();
+
+  const getExecutor = (model: string): ProgrammaticExecutor => {
+    let executor = executorCache.get(model);
+    if (!executor) {
+      const adapter = createAnthropicAdapter(client, model);
+      executor = new ProgrammaticExecutor({
+        llm: adapter,
+        tools,
+        sandbox: config.sandbox,
+        instructions: config.instructions,
+        debug: config.debug,
+        onEvent: config.onEvent,
+      });
+      executorCache.set(model, executor);
+    }
+    return executor;
+  };
 
   // Create a proxy that intercepts messages.create
   const messagesProxy = new Proxy(client.messages, {
@@ -146,19 +165,10 @@ export function wrapAnthropicClient<T extends AnthropicClient>(
                   .map((block) => block.text!)
                   .join('\n');
 
-          log('Executing programmatically:', userRequest.slice(0, 100));
+          log('Intercepted messages.create with user request for tool execution.');
 
-          // Create executor and run
-          const adapter = createAnthropicAdapter(client, params.model);
-          const executor = new ProgrammaticExecutor({
-            llm: adapter,
-            tools,
-            sandbox: config.sandbox,
-            instructions: config.instructions,
-            debug: config.debug,
-            onEvent: config.onEvent,
-          });
-
+          // Use cached executor for this model
+          const executor = getExecutor(params.model);
           const result = await executor.run(userRequest);
 
           // Return response in Anthropic format

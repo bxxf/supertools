@@ -14,7 +14,7 @@
 
 import Anthropic from "@anthropic-ai/sdk";
 import { Sandbox } from "e2b";
-import { supertools, defineTool, z } from "@supertools-ai/core";
+import { supertools, defineTool, z, SANDBOX_TEMPLATE } from "@supertools-ai/core";
 
 // -----------------------------------------------------------------------------
 // Configuration
@@ -447,7 +447,7 @@ async function main() {
   const client = new Anthropic();
 
   console.log("Creating E2B sandbox...");
-  const sandbox = await Sandbox.create("supertools-bun-014", { timeoutMs: 5 * 60 * 1000 });
+  const sandbox = await Sandbox.create(SANDBOX_TEMPLATE, { timeoutMs: 5 * 60 * 1000 });
   console.log("Sandbox ready");
 
   try {

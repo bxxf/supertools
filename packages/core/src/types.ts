@@ -8,13 +8,11 @@ export interface ExecutionResult {
   readonly output: string;
   readonly error?: string;
   readonly executionTimeMs: number;
-  readonly images?: readonly string[];
 }
 
 export interface GeneratedCode {
   readonly code: string;
   readonly explanation?: string;
-  readonly rawResponse?: string;
   readonly usage?: {
     readonly inputTokens: number;
     readonly outputTokens: number;

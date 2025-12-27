@@ -75,8 +75,24 @@ export {
 } from './utils/errors';
 
 // Utilities (for advanced usage)
-export { buildSystemPrompt, extractCode } from './prompts';
 export { generateTypeHints } from './utils/type-hints';
 export { normalizeTools, isTool } from './tool';
 export type { NormalizedTool, NormalizedParameter } from './tool';
+
+// MCP integration
+export {
+  zodToolToMcp,
+  zodToolsToMcp,
+  buildMcpSystemPrompt,
+  extractCode,
+  HostMcpServer,
+  createHostMcpServer,
+  type McpTool,
+  type McpServerConfig,
+  type McpToolCallRequest,
+  type McpToolCallResult,
+  type ZodToMcpOptions,
+  type HostMcpServerConfig,
+  type McpEvent,
+} from './mcp';
 

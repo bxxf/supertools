@@ -11,10 +11,6 @@ import type { ExecutionEvent } from '../types';
 import { encode, decode, type MessageType, type DecodedMessage } from './proto';
 import { SANDBOX_TEMPLATE } from '../constants';
 
-// =============================================================================
-// Types
-// =============================================================================
-
 export interface RelayClientConfig {
   url: string;
   token: string;
@@ -32,18 +28,10 @@ interface ExecutionState {
   resolver: ((result: { success: boolean; error?: string }) => void) | null;
 }
 
-// =============================================================================
-// Constants
-// =============================================================================
-
 const DEFAULT_TIMEOUT = 30_000;
 const DEFAULT_MAX_RETRIES = 5;
 const MAX_BACKOFF = 30_000;
 const MAX_MESSAGE_SIZE = 10 * 1024 * 1024;
-
-// =============================================================================
-// Client
-// =============================================================================
 
 export class RelayClient {
   private ws: WebSocket | null = null;
@@ -91,15 +79,21 @@ export class RelayClient {
     if (!ws) return;
 
     return new Promise((resolve) => {
+      let cleaned = false;
+      let timeout: ReturnType<typeof setTimeout>;
+
       const cleanup = () => {
+        if (cleaned) return;
+        cleaned = true;
+        clearTimeout(timeout);
         this.ws = null;
         resolve();
       };
 
       if (ws.readyState === WebSocket.OPEN) {
-        ws.onclose = () => cleanup();
+        ws.onclose = cleanup;
         ws.close(1000, 'Client disconnect');
-        setTimeout(cleanup, 5000);
+        timeout = setTimeout(cleanup, 5000);
       } else {
         cleanup();
       }
