@@ -180,9 +180,20 @@ const handleEvent = (event: ExecutionEvent) => {
         `  ✓ ${event.tool} completed (${event.durationMs}ms) with result: ${JSON.stringify(event.result, null, 2).replace(/\n/g, "").replace(/\s+/g, " ")}`
       );
       break;
+    case "tool_error":
+      console.log(`  ✗ ${event.tool} failed: ${event.error}`);
+      break;
     case "result":
       console.log("\n📊 Result:");
       console.log(JSON.stringify(event.data, null, 2));
+      break;
+    case "execution_error":
+      console.log("\n❌ Execution Error:", event.error);
+      break;
+    case "complete":
+      if (!event.success) {
+        console.log("\n❌ Failed:", event.error);
+      }
       break;
   }
 };

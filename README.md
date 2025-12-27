@@ -356,11 +356,13 @@ const client = supertools(new Anthropic(), {
     // - 'tool_call': Tool invoked (includes tool name and args)
     // - 'tool_result': Tool completed (includes result and durationMs)
     // - 'tool_error': Tool execution failed
-    // - 'result': Final execution result
+    // - 'result': Final execution result (includes data)
+    // - 'execution_error': Sandbox execution failed (includes error message)
     // - 'complete': Execution finished (success or error)
     if (event.type === 'tool_call') console.log(`Calling ${event.tool}...`);
     if (event.type === 'tool_result') console.log(`${event.tool} done in ${event.durationMs}ms`);
     if (event.type === 'result') console.log('Result:', event.data);
+    if (event.type === 'execution_error') console.log('Error:', event.error);
   },
 });
 

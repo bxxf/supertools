@@ -70,6 +70,7 @@ export type ExecutionEvent =
       readonly callId: string;
     }
   | { readonly type: "result"; readonly data: unknown }
+  | { readonly type: "execution_error"; readonly error: string }
   | {
       readonly type: "complete";
       readonly success: boolean;

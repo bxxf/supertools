@@ -238,6 +238,7 @@ export class RelayClient {
 
       case "error":
         this.state.error = msg.error ?? "Unknown error";
+        this.emit({ type: "execution_error", error: this.state.error });
         this.state.resolver?.({ success: false, error: this.state.error });
         this.state.resolver = null;
         break;
