@@ -35,64 +35,54 @@
  */
 
 // Sandbox template - use this with E2B
-export { SANDBOX_TEMPLATE } from './constants';
-
-// Main API
-export { supertools, detectProvider } from './supertools';
-export type { SupertoolsConfig, SupportedProvider } from './supertools';
-
-// Tool definitions
-export { defineTool, z } from './tool';
-export type { Tool, ToolDefinition } from './tool';
-
+export { SANDBOX_TEMPLATE } from "./constants";
+export type { CreateExecutorOptions } from "./executor";
 // Low-level executor (for advanced usage)
-export { createExecutor, ProgrammaticExecutor } from './executor';
-export type { CreateExecutorOptions } from './executor';
-
-// Types
-export type {
-  ToolCollection,
-  ExecutionResult,
-  GeneratedCode,
-  ProgrammaticResult,
-  ToolCallRequest,
-  ToolCallResponse,
-  LLMAdapter,
-  ExecutorConfig,
-  ExecutionEvent,
-} from './types';
-
-// Errors
-export {
-  OPTError,
-  CodeGenerationError,
-  ExecutionError,
-  ToolError,
-  RelayConnectionError,
-  RelayTimeoutError,
-  SandboxError,
-  ConfigurationError,
-} from './utils/errors';
-
-// Utilities (for advanced usage)
-export { generateTypeHints } from './utils/type-hints';
-export { normalizeTools, isTool } from './tool';
-export type { NormalizedTool, NormalizedParameter } from './tool';
-
+export { createExecutor, ProgrammaticExecutor } from "./executor";
 // MCP integration
 export {
-  zodToolToMcp,
-  zodToolsToMcp,
   buildMcpSystemPrompt,
+  createHostMcpServer,
   extractCode,
   HostMcpServer,
-  createHostMcpServer,
-  type McpTool,
+  type HostMcpServerConfig,
+  type McpEvent,
   type McpServerConfig,
+  type McpTool,
   type McpToolCallRequest,
   type McpToolCallResult,
   type ZodToMcpOptions,
-  type HostMcpServerConfig,
-  type McpEvent,
-} from './mcp';
-
+  zodToolsToMcp,
+  zodToolToMcp,
+} from "./mcp";
+export type { SupertoolsConfig, SupportedProvider } from "./supertools";
+// Main API
+export { detectProvider, supertools } from "./supertools";
+export type { NormalizedParameter, NormalizedTool, Tool, ToolDefinition } from "./tool";
+// Tool definitions
+export { defineTool, isTool, normalizeTools, z } from "./tool";
+// Types
+export type {
+  ExecutionEvent,
+  ExecutionResult,
+  ExecutorConfig,
+  GeneratedCode,
+  LLMAdapter,
+  ProgrammaticResult,
+  ToolCallRequest,
+  ToolCallResponse,
+  ToolCollection,
+} from "./types";
+// Errors
+export {
+  CodeGenerationError,
+  ConfigurationError,
+  ExecutionError,
+  OPTError,
+  RelayConnectionError,
+  RelayTimeoutError,
+  SandboxError,
+  ToolError,
+} from "./utils/errors";
+// Utilities (for advanced usage)
+export { generateTypeHints } from "./utils/type-hints";

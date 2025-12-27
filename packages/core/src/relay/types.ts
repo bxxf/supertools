@@ -16,7 +16,7 @@ export interface RelayConfig {
  */
 export const DEFAULT_RELAY_CONFIG: RelayConfig = {
   port: 8080,
-  token: '',
+  token: "",
   timeout: 300,
   debug: false,
 } as const;

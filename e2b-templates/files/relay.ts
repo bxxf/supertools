@@ -7,24 +7,24 @@
  * Supports MCP-style tool routing via mcp.call('server.tool', args)
  */
 
-import { encode, decode, type MessageType, type DecodedMessage } from './proto/codec';
-import { createMcpRouter, type McpRouter } from './mcp-router';
+import { createMcpRouter, type McpRouter } from "./mcp-router";
+import { type DecodedMessage, decode, encode, type MessageType } from "./proto/codec";
 
 const CONFIG = {
   port: 8080,
-  host: '0.0.0.0',
+  host: "0.0.0.0",
   timeout: 30_000,
   maxMessageSize: 10 * 1024 * 1024,
-  debug: Bun.env.DEBUG === 'true',
+  debug: Bun.env.DEBUG === "true",
 } as const;
 
 const log = {
-  info: (...args: unknown[]) => CONFIG.debug && console.log('[Relay]', ...args),
-  error: (...args: unknown[]) => console.error('[Relay:Error]', ...args),
+  info: (...args: unknown[]) => CONFIG.debug && console.log("[Relay]", ...args),
+  error: (...args: unknown[]) => console.error("[Relay:Error]", ...args),
 };
 
 // Cached for performance - avoid recreating on each execution
-const AsyncFunction = Object.getPrototypeOf(async function () {}).constructor;
+const AsyncFunction = Object.getPrototypeOf(async () => {}).constructor;
 
 interface PendingCall {
   resolve: (result: { success: boolean; result?: unknown; error?: string }) => void;
@@ -47,18 +47,18 @@ class Session {
 
   attach(socket: Socket): void {
     this.socket = socket;
-    log.info('Host connected');
+    log.info("Host connected");
   }
 
   detach(): void {
     this.pending.forEach(({ resolve, timer }) => {
       clearTimeout(timer);
-      resolve({ success: false, error: 'Connection closed' });
+      resolve({ success: false, error: "Connection closed" });
     });
     this.pending.clear();
     this.socket = null;
     this.token = null;
-    log.info('Host disconnected');
+    log.info("Host disconnected");
   }
 
   authorize(token: string | null): boolean {
@@ -78,7 +78,7 @@ class Session {
     return new Promise((resolve) => {
       const timer = setTimeout(() => {
         this.pending.delete(id);
-        resolve({ success: false, error: 'Timeout' });
+        resolve({ success: false, error: "Timeout" });
       }, CONFIG.timeout);
 
       this.pending.set(id, { resolve, timer });
@@ -100,32 +100,36 @@ class Executor {
 
   constructor(private readonly session: Session) {
     // Create MCP router with remote call function
-    this.mcpRouter = createMcpRouter(
-      (tool, args) => this.callRemote(tool, args),
-      CONFIG.debug
-    );
+    this.mcpRouter = createMcpRouter((tool, args) => this.callRemote(tool, args), CONFIG.debug);
   }
 
-  async run(code: string, remoteTools: string[], localTools: Record<string, string>): Promise<void> {
+  async run(
+    code: string,
+    remoteTools: string[],
+    localTools: Record<string, string>
+  ): Promise<void> {
     try {
       const bindings = this.buildBindings(remoteTools, localTools);
       const names = Object.keys(bindings);
       const fn = new AsyncFunction(...names, code);
       const result = await fn(...names.map((n) => bindings[n]));
 
-      this.session.send('result', { data: result });
-      log.info('Execution complete');
+      this.session.send("result", { data: result });
+      log.info("Execution complete");
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
-      log.error('Execution failed:', message);
-      this.session.send('error', { error: message });
+      log.error("Execution failed:", message);
+      this.session.send("error", { error: message });
     }
   }
 
-  private buildBindings(_remoteTools: string[], localTools: Record<string, string>): Record<string, unknown> {
+  private buildBindings(
+    _remoteTools: string[],
+    localTools: Record<string, string>
+  ): Record<string, unknown> {
     // Register local tools as a 'local' MCP server
     if (Object.keys(localTools).length > 0) {
-      this.mcpRouter.registerServer('local', this.createLocalServer(localTools));
+      this.mcpRouter.registerServer("local", this.createLocalServer(localTools));
     }
 
     // MCP router is the only way to call tools
@@ -145,6 +149,7 @@ class Executor {
     call(method: string, args: Record<string, unknown>): Promise<unknown>;
     close(): Promise<void>;
   } {
+    // biome-ignore lint/complexity/noBannedTypes: Function is intentional for dynamic tool compilation
     const compiledTools = new Map<string, Function>();
 
     // Compile all local tools using Function constructor (safer than eval)
@@ -154,7 +159,7 @@ class Executor {
         throw new Error(`Invalid local tool: ${name}`);
       }
       const fn = new Function(`return (${code})`)();
-      if (typeof fn !== 'function') {
+      if (typeof fn !== "function") {
         throw new Error(`Not a function: ${name}`);
       }
       compiledTools.set(name, fn);
@@ -180,12 +185,12 @@ class Executor {
     const id = crypto.randomUUID();
     const pending = this.session.registerCall(id);
 
-    this.session.send('tool_call', { id, tool: name, arguments: args });
+    this.session.send("tool_call", { id, tool: name, arguments: args });
     log.info(`Tool call: ${name}`);
 
     const result = await pending;
     if (result.success) return result.result;
-    throw new Error(`${name}: ${result.error ?? 'Tool call failed'}`);
+    throw new Error(`${name}: ${result.error ?? "Tool call failed"}`);
   }
 }
 
@@ -208,35 +213,38 @@ class RelayServer {
     log.info(`Listening on port ${CONFIG.port}`);
   }
 
-  private handleHttp(req: Request, server: { upgrade(req: Request): boolean }): Response | undefined {
+  private handleHttp(
+    req: Request,
+    server: { upgrade(req: Request): boolean }
+  ): Response | undefined {
     const url = new URL(req.url);
 
-    if (url.pathname === '/ws') {
-      const auth = req.headers.get('Authorization');
-      const token = auth?.startsWith('Bearer ') ? auth.slice(7) : null;
+    if (url.pathname === "/ws") {
+      const auth = req.headers.get("Authorization");
+      const token = auth?.startsWith("Bearer ") ? auth.slice(7) : null;
 
       if (!this.session.authorize(token)) {
-        return new Response('Unauthorized', { status: 401 });
+        return new Response("Unauthorized", { status: 401 });
       }
 
-      return server.upgrade(req) ? undefined : new Response('Upgrade failed', { status: 500 });
+      return server.upgrade(req) ? undefined : new Response("Upgrade failed", { status: 500 });
     }
 
-    if (url.pathname === '/health') {
-      return Response.json({ ok: true, connected: this.session.connected, encoding: 'protobuf' });
+    if (url.pathname === "/health") {
+      return Response.json({ ok: true, connected: this.session.connected, encoding: "protobuf" });
     }
 
-    return new Response('Not Found', { status: 404 });
+    return new Response("Not Found", { status: 404 });
   }
 
   private handleMessage(data: string | ArrayBuffer): void {
-    if (typeof data === 'string') {
-      this.session.send('error', { error: 'Binary protocol required' });
+    if (typeof data === "string") {
+      this.session.send("error", { error: "Binary protocol required" });
       return;
     }
 
     if (data.byteLength > CONFIG.maxMessageSize) {
-      this.session.send('error', { error: 'Message too large' });
+      this.session.send("error", { error: "Message too large" });
       return;
     }
 
@@ -244,13 +252,13 @@ class RelayServer {
     try {
       msg = decode(data);
     } catch {
-      this.session.send('error', { error: 'Decode failed' });
+      this.session.send("error", { error: "Decode failed" });
       return;
     }
 
     switch (msg.type) {
-      case 'tool_result':
-      case 'error':
+      case "tool_result":
+      case "error":
         if (msg.id) {
           this.session.resolveCall(msg.id, {
             success: msg.success ?? false,
@@ -260,13 +268,13 @@ class RelayServer {
         }
         break;
 
-      case 'execute':
-        this.executor.run(msg.code ?? '', msg.remoteTools ?? [], msg.localTools ?? {});
+      case "execute":
+        this.executor.run(msg.code ?? "", msg.remoteTools ?? [], msg.localTools ?? {});
         break;
 
-      case 'ping':
+      case "ping":
         if (msg.id) {
-          this.session.send('pong', { id: msg.id });
+          this.session.send("pong", { id: msg.id });
         }
         break;
     }

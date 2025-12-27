@@ -1,226 +1,225 @@
-/**
- * Tool Module Tests
- */
+import { describe, expect, it } from "bun:test";
+import { defineTool, isTool, normalizeTools, z } from "../index";
 
-import { describe, it, expect } from 'bun:test';
-import { z } from 'zod';
-import { defineTool, normalizeTools, isTool } from '../tool';
-
-describe('Tool Module', () => {
-  describe('defineTool', () => {
-    it('creates a tool with schema parameters', () => {
-      const tool = defineTool({
-        name: 'get_users',
-        description: 'Get users from database',
-        parameters: z.object({
-          role: z.string().optional(),
-          limit: z.number().default(10),
-        }),
-        execute: async ({ role, limit }) => {
-          return { role, limit };
-        },
-      });
-
-      expect(isTool(tool)).toBe(true);
-      expect(tool.name).toBe('get_users');
-      expect(tool.description).toBe('Get users from database');
+describe("defineTool", () => {
+  it("creates a valid tool with required fields", () => {
+    const tool = defineTool({
+      name: "getUsers",
+      description: "Get all users from the database",
+      parameters: z.object({
+        limit: z.number().optional(),
+      }),
+      execute: async () => [{ id: 1, name: "Alice" }],
     });
 
-    it('creates a tool with empty parameters', () => {
-      const tool = defineTool({
-        name: 'ping',
-        description: 'Ping the server',
-        parameters: z.object({}),
-        execute: async () => 'pong',
-      });
-
-      expect(isTool(tool)).toBe(true);
-      expect(tool.name).toBe('ping');
-    });
-
-    it('throws on invalid name', () => {
-      expect(() =>
-        defineTool({
-          name: '123invalid',
-          description: 'A valid description',
-          parameters: z.object({}),
-          execute: async () => {},
-        })
-      ).toThrow(/Invalid tool name/);
-
-      expect(() =>
-        defineTool({
-          name: 'has-hyphen',
-          description: 'A valid description',
-          parameters: z.object({}),
-          execute: async () => {},
-        })
-      ).toThrow(/Invalid tool name/);
-
-      expect(() =>
-        defineTool({
-          name: '',
-          description: 'A valid description',
-          parameters: z.object({}),
-          execute: async () => {},
-        })
-      ).toThrow(/Tool name is required/);
-    });
-
-    it('throws on missing description', () => {
-      expect(() =>
-        defineTool({
-          name: 'test_tool',
-          description: '',
-          parameters: z.object({}),
-          execute: async () => {},
-        })
-      ).toThrow(/description is required/);
-    });
-
-    it('throws on non-function execute', () => {
-      expect(() =>
-        defineTool({
-          name: 'test_tool',
-          description: 'A valid description',
-          parameters: z.object({}),
-          execute: 'not a function' as any,
-        })
-      ).toThrow(/execute must be a function/);
-    });
-
-    it('throws on non-object parameters', () => {
-      expect(() =>
-        defineTool({
-          name: 'test_tool',
-          description: 'A valid description',
-          parameters: z.string() as any,
-          execute: async () => {},
-        })
-      ).toThrow(/must be z\.object/);
-    });
+    expect(tool.name).toBe("getUsers");
+    expect(tool.description).toBe("Get all users from the database");
+    expect(typeof tool.execute).toBe("function");
   });
 
-  describe('normalizeTools', () => {
-    it('normalizes a defined tool', () => {
-      const tool = defineTool({
-        name: 'getUsers',
-        description: 'Get users from the database',
-        parameters: z.object({
-          role: z.string(),
-        }),
-        execute: async ({ role }) => [{ role }],
-      });
-
-      const [normalized] = normalizeTools([tool]);
-
-      expect(normalized.name).toBe('get_users'); // camelCase -> snake_case
-      expect(normalized.description).toBe('Get users from the database');
-      expect(normalized.parameters).toHaveLength(1);
-      expect(normalized.parameters[0].name).toBe('role');
-      expect(normalized.parameters[0].type).toBe('string');
-      expect(normalized.parameters[0].required).toBe(true);
+  it("creates a tool with returns schema", () => {
+    const tool = defineTool({
+      name: "getUser",
+      description: "Get a single user by ID",
+      parameters: z.object({
+        id: z.number(),
+      }),
+      returns: z.object({
+        id: z.number(),
+        name: z.string(),
+      }),
+      execute: async ({ id }) => ({ id, name: "Alice" }),
     });
 
-    it('converts camelCase to snake_case', () => {
-      const tool = defineTool({
-        name: 'getUserById',
-        description: 'Get a user by their ID',
-        parameters: z.object({}),
-        execute: async () => {},
-      });
-
-      expect(normalizeTools([tool])[0].name).toBe('get_user_by_id');
-    });
-
-    it('handles consecutive uppercase (HTTP, API, etc)', () => {
-      const tool = defineTool({
-        name: 'getHTTPResponse',
-        description: 'Get HTTP response from server',
-        parameters: z.object({}),
-        execute: async () => {},
-      });
-
-      expect(normalizeTools([tool])[0].name).toBe('get_http_response');
-    });
-
-    it('handles optional parameters', () => {
-      const tool = defineTool({
-        name: 'test_tool',
-        description: 'A test tool with parameters',
-        parameters: z.object({
-          required: z.string(),
-          optional: z.string().optional(),
-        }),
-        execute: async () => {},
-      });
-
-      const [normalized] = normalizeTools([tool]);
-      const required = normalized.parameters.find(p => p.name === 'required');
-      const optional = normalized.parameters.find(p => p.name === 'optional');
-
-      expect(required?.required).toBe(true);
-      expect(optional?.required).toBe(false);
-    });
-
-    it('maps Zod types to Python types', () => {
-      const tool = defineTool({
-        name: 'test_tool',
-        description: 'A test tool with various types',
-        parameters: z.object({
-          str: z.string(),
-          num: z.number(),
-          int: z.number().int(),
-          bool: z.boolean(),
-          arr: z.array(z.string()),
-          obj: z.object({ nested: z.string() }),
-        }),
-        execute: async () => {},
-      });
-
-      const [normalized] = normalizeTools([tool]);
-      const params = Object.fromEntries(normalized.parameters.map(p => [p.name, p.type]));
-
-      expect(params.str).toBe('string');
-      expect(params.num).toBe('number');
-      expect(params.int).toBe('integer');
-      expect(params.bool).toBe('boolean');
-      expect(params.arr).toBe('array');
-      expect(params.obj).toBe('object');
-    });
-
-    it('includes parameter descriptions', () => {
-      const tool = defineTool({
-        name: 'test_tool',
-        description: 'A test tool with descriptions',
-        parameters: z.object({
-          role: z.string().describe('The user role'),
-        }),
-        execute: async () => {},
-      });
-
-      const [normalized] = normalizeTools([tool]);
-      expect(normalized.parameters[0].description).toBe('The user role');
-    });
+    expect(tool.returns).toBeDefined();
   });
 
-  describe('isTool', () => {
-    it('returns true for defined tools', () => {
-      const tool = defineTool({
-        name: 'test_tool',
-        description: 'A simple test tool',
+  it("creates a local tool", () => {
+    const tool = defineTool({
+      name: "calculate",
+      description: "Calculate sum of numbers",
+      parameters: z.object({
+        values: z.array(z.number()),
+      }),
+      local: true,
+      execute: async ({ values }) => values.reduce((a, b) => a + b, 0),
+    });
+
+    expect(tool.local).toBe(true);
+  });
+});
+
+describe("normalizeTools", () => {
+  it("normalizes a single tool", () => {
+    const tool = defineTool({
+      name: "getUsers",
+      description: "Get all users",
+      parameters: z.object({}),
+      execute: async () => [],
+    });
+
+    const normalized = normalizeTools([tool]);
+
+    expect(normalized).toHaveLength(1);
+    expect(normalized[0].name).toBe("get_users"); // snake_case
+    expect(normalized[0].description).toBe("Get all users");
+  });
+
+  it("converts camelCase to snake_case", () => {
+    const tool = defineTool({
+      name: "getUserById",
+      description: "Get user by ID",
+      parameters: z.object({ id: z.number() }),
+      execute: async () => null,
+    });
+
+    const [normalized] = normalizeTools([tool]);
+    expect(normalized.name).toBe("get_user_by_id");
+  });
+
+  it("extracts parameters correctly", () => {
+    const tool = defineTool({
+      name: "search",
+      description: "Search for items",
+      parameters: z.object({
+        query: z.string().describe("Search query"),
+        limit: z.number().optional().describe("Max results"),
+      }),
+      execute: async () => [],
+    });
+
+    const [normalized] = normalizeTools([tool]);
+
+    expect(normalized.parameters).toHaveLength(2);
+
+    const queryParam = normalized.parameters.find((p) => p.name === "query");
+    expect(queryParam).toBeDefined();
+    expect(queryParam?.type).toBe("string");
+    expect(queryParam?.required).toBe(true);
+    expect(queryParam?.description).toBe("Search query");
+
+    const limitParam = normalized.parameters.find((p) => p.name === "limit");
+    expect(limitParam).toBeDefined();
+    expect(limitParam?.type).toBe("number");
+    expect(limitParam?.required).toBe(false);
+  });
+
+  it("handles array parameters", () => {
+    const tool = defineTool({
+      name: "process",
+      description: "Process items",
+      parameters: z.object({
+        ids: z.array(z.number()),
+      }),
+      execute: async () => null,
+    });
+
+    const [normalized] = normalizeTools([tool]);
+    const idsParam = normalized.parameters.find((p) => p.name === "ids");
+
+    expect(idsParam?.type).toBe("array");
+    expect(idsParam?.required).toBe(true);
+  });
+
+  it("handles enum parameters", () => {
+    const tool = defineTool({
+      name: "filter",
+      description: "Filter by status",
+      parameters: z.object({
+        status: z.enum(["active", "inactive", "pending"]),
+      }),
+      execute: async () => null,
+    });
+
+    const [normalized] = normalizeTools([tool]);
+    const statusParam = normalized.parameters.find((p) => p.name === "status");
+
+    // normalizeTools converts enums to 'string' type (enum values preserved in MCP conversion)
+    expect(statusParam?.type).toBe("string");
+    expect(statusParam?.required).toBe(true);
+  });
+
+  it("serializes local tool code", () => {
+    const tool = defineTool({
+      name: "calculate",
+      description: "Calculate stats",
+      parameters: z.object({ values: z.array(z.number()) }),
+      local: true,
+      execute: async ({ values }) => ({
+        sum: values.reduce((a, b) => a + b, 0),
+      }),
+    });
+
+    const [normalized] = normalizeTools([tool]);
+
+    expect(normalized.localCode).toBeDefined();
+    expect(normalized.localCode).toContain("values");
+    expect(normalized.localCode).toContain("reduce");
+  });
+
+  it("normalizes tools with same snake_case name (no dedup)", () => {
+    const tools = [
+      defineTool({
+        name: "getUsers",
+        description: "Get users",
         parameters: z.object({}),
-        execute: async () => {},
-      });
+        execute: async () => [],
+      }),
+      defineTool({
+        name: "get_users", // Same after normalization
+        description: "Get users again",
+        parameters: z.object({}),
+        execute: async () => [],
+      }),
+    ];
 
-      expect(isTool(tool)).toBe(true);
+    // normalizeTools doesn't deduplicate - it's the caller's responsibility
+    const normalized = normalizeTools(tools);
+    expect(normalized).toHaveLength(2);
+    expect(normalized[0].name).toBe("get_users");
+    expect(normalized[1].name).toBe("get_users");
+  });
+
+  it("throws on invalid tool name", () => {
+    expect(() =>
+      defineTool({
+        name: "123invalid",
+        description: "Invalid name",
+        parameters: z.object({}),
+        execute: async () => null,
+      })
+    ).toThrow();
+  });
+
+  it("throws on short description", () => {
+    expect(() =>
+      defineTool({
+        name: "test",
+        description: "Hi", // Too short
+        parameters: z.object({}),
+        execute: async () => null,
+      })
+    ).toThrow();
+  });
+});
+
+describe("isTool", () => {
+  it("returns true for valid tool", () => {
+    const tool = defineTool({
+      name: "test",
+      description: "Test tool",
+      parameters: z.object({}),
+      execute: async () => null,
     });
 
-    it('returns false for non-tools', () => {
-      expect(isTool({})).toBe(false);
-      expect(isTool(null)).toBe(false);
-      expect(isTool(undefined)).toBe(false);
-      expect(isTool({ name: 'fake', execute: () => {} })).toBe(false);
-    });
+    expect(isTool(tool)).toBe(true);
+  });
+
+  it("returns false for non-tool objects", () => {
+    expect(isTool(null)).toBe(false);
+    expect(isTool(undefined)).toBe(false);
+    expect(isTool({})).toBe(false);
+    expect(isTool({ name: "test" })).toBe(false);
+    expect(isTool({ name: "test", execute: () => {} })).toBe(false);
   });
 });

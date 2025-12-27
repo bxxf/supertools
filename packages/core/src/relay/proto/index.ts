@@ -1,2 +1,2 @@
-export { encode, decode, isBinary } from './codec';
-export type { MessageType, DecodedMessage } from './codec';
+export type { DecodedMessage, MessageType } from "./codec";
+export { decode, encode, isBinary } from "./codec";

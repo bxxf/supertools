@@ -1,5 +1,5 @@
-import type { Sandbox } from 'e2b';
-import type { AnyTool } from './tool';
+import type { Sandbox } from "e2b";
+import type { AnyTool } from "./tool";
 
 export type ToolCollection = readonly AnyTool[];
 
@@ -48,13 +48,34 @@ export interface LLMAdapter {
  * Structured execution events for real-time progress tracking
  */
 export type ExecutionEvent =
-  | { readonly type: 'code_generated'; readonly code: string; readonly explanation?: string }
-  | { readonly type: 'sandbox_ready'; readonly sandboxId: string }
-  | { readonly type: 'tool_call'; readonly tool: string; readonly arguments: Record<string, unknown>; readonly callId: string }
-  | { readonly type: 'tool_result'; readonly tool: string; readonly result: unknown; readonly callId: string; readonly durationMs: number }
-  | { readonly type: 'tool_error'; readonly tool: string; readonly error: string; readonly callId: string }
-  | { readonly type: 'result'; readonly data: unknown }
-  | { readonly type: 'complete'; readonly success: boolean; readonly output: string; readonly error?: string };
+  | { readonly type: "code_generated"; readonly code: string; readonly explanation?: string }
+  | { readonly type: "sandbox_ready"; readonly sandboxId: string }
+  | {
+      readonly type: "tool_call";
+      readonly tool: string;
+      readonly arguments: Record<string, unknown>;
+      readonly callId: string;
+    }
+  | {
+      readonly type: "tool_result";
+      readonly tool: string;
+      readonly result: unknown;
+      readonly callId: string;
+      readonly durationMs: number;
+    }
+  | {
+      readonly type: "tool_error";
+      readonly tool: string;
+      readonly error: string;
+      readonly callId: string;
+    }
+  | { readonly type: "result"; readonly data: unknown }
+  | {
+      readonly type: "complete";
+      readonly success: boolean;
+      readonly output: string;
+      readonly error?: string;
+    };
 
 export interface ExecutorConfig {
   readonly tools: ToolCollection;

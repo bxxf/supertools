@@ -8,11 +8,10 @@
  * tool definitions and handles tool execution.
  */
 
-import type { AnyTool } from '../tool';
-import type { McpTool, McpToolCallRequest, McpToolCallResult, McpContent } from './types';
-
-import { zodToolsToMcp } from './zod-to-mcp';
-import { toSnakeCase } from '../utils/string';
+import type { AnyTool } from "../tool";
+import { toSnakeCase } from "../utils/string";
+import type { McpContent, McpTool, McpToolCallRequest, McpToolCallResult } from "./types";
+import { zodToolsToMcp } from "./zod-to-mcp";
 
 export interface HostMcpServerConfig {
   /** Server name (used for tool routing) */
@@ -22,14 +21,14 @@ export interface HostMcpServerConfig {
 }
 
 export interface ToolCallEvent {
-  type: 'tool_call';
+  type: "tool_call";
   tool: string;
   arguments: Record<string, unknown>;
   callId: string;
 }
 
 export interface ToolResultEvent {
-  type: 'tool_result';
+  type: "tool_result";
   tool: string;
   result: unknown;
   callId: string;
@@ -37,7 +36,7 @@ export interface ToolResultEvent {
 }
 
 export interface ToolErrorEvent {
-  type: 'tool_error';
+  type: "tool_error";
   tool: string;
   error: string;
   callId: string;
@@ -57,7 +56,7 @@ export class HostMcpServer {
       name: config.name,
       debug: config.debug ?? false,
     };
-    this.log = this.config.debug ? (...args) => console.log('[HostMcpServer]', ...args) : () => {};
+    this.log = this.config.debug ? (...args) => console.log("[HostMcpServer]", ...args) : () => {};
 
     // Store tools by snake_case name for lookup
     this.tools = new Map();
@@ -98,7 +97,7 @@ export class HostMcpServer {
     const start = Date.now();
 
     this.onEvent?.({
-      type: 'tool_call',
+      type: "tool_call",
       tool: name,
       arguments: args,
       callId: String(id),
@@ -108,14 +107,14 @@ export class HostMcpServer {
     if (!tool) {
       const error = `Unknown tool: ${name}`;
       this.onEvent?.({
-        type: 'tool_error',
+        type: "tool_error",
         tool: name,
         error,
         callId: String(id),
       });
 
       return {
-        jsonrpc: '2.0',
+        jsonrpc: "2.0",
         id,
         error: { code: -32601, message: error },
       };
@@ -126,36 +125,34 @@ export class HostMcpServer {
       const durationMs = Date.now() - start;
 
       this.onEvent?.({
-        type: 'tool_result',
+        type: "tool_result",
         tool: name,
         result,
         callId: String(id),
         durationMs,
       });
 
-      const content: McpContent[] = [
-        { type: 'text', text: JSON.stringify(result) },
-      ];
+      const content: McpContent[] = [{ type: "text", text: JSON.stringify(result) }];
 
       return {
-        jsonrpc: '2.0',
+        jsonrpc: "2.0",
         id,
         result: { content },
       };
     } catch (e) {
-      const error = e instanceof Error ? e.message : 'Execution failed';
+      const error = e instanceof Error ? e.message : "Execution failed";
 
       this.onEvent?.({
-        type: 'tool_error',
+        type: "tool_error",
         tool: name,
         error,
         callId: String(id),
       });
 
       return {
-        jsonrpc: '2.0',
+        jsonrpc: "2.0",
         id,
-        result: { content: [{ type: 'text', text: error }], isError: true },
+        result: { content: [{ type: "text", text: error }], isError: true },
       };
     }
   }

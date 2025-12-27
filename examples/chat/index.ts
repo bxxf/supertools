@@ -14,9 +14,8 @@
 
 import Anthropic from "@anthropic-ai/sdk";
 import { supertools } from "@supertools-ai/core";
-
-import { tools } from "./tools";
 import { SandboxPool } from "./sandbox-pool";
+import { tools } from "./tools";
 
 async function chat(
   pool: SandboxPool,
@@ -48,8 +47,7 @@ async function chat(
     await client.messages.create({
       model: "claude-sonnet-4-5",
       max_tokens: 1024,
-      system:
-        "You have access to a user/order database. Use the tools to answer questions.",
+      system: "You have access to a user/order database. Use the tools to answer questions.",
       messages,
     });
 
@@ -61,7 +59,8 @@ async function chat(
       const stream = anthropic.messages.stream({
         model: "claude-sonnet-4-5",
         max_tokens: 1024,
-        system: "You are a helpful assistant. Summarize the data concisely in natural language. Be conversational.",
+        system:
+          "You are a helpful assistant. Summarize the data concisely in natural language. Be conversational.",
         messages: [
           ...messages,
           {
@@ -86,7 +85,10 @@ async function chat(
       messages.push({ role: "assistant", content: fullText });
     } else {
       console.log("Assistant: I couldn't find any relevant data for that query.\n");
-      messages.push({ role: "assistant", content: "I couldn't find any relevant data for that query." });
+      messages.push({
+        role: "assistant",
+        content: "I couldn't find any relevant data for that query.",
+      });
     }
   } finally {
     await pool.release(sandbox);
@@ -98,7 +100,7 @@ async function main() {
   const anthropic = new Anthropic();
   const messages: Anthropic.MessageParam[] = [];
 
-  console.log("\n" + "=".repeat(60));
+  console.log(`\n${"=".repeat(60)}`);
   console.log("Supertools Chat Demo");
   console.log("=".repeat(60));
   console.log("\nData: users (Alice, Bob, Charlie) + orders");

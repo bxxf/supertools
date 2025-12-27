@@ -5,11 +5,10 @@
  * Every request generates code that runs in a secure E2B sandbox.
  */
 
-import { ProgrammaticExecutor } from '../executor';
-import { normalizeTools, type AnyTool } from '../tool';
-
-import type { LLMAdapter, GeneratedCode } from '../types';
-import type { SupertoolsConfig } from '../supertools';
+import { ProgrammaticExecutor } from "../executor";
+import type { SupertoolsConfig } from "../supertools";
+import { type AnyTool, normalizeTools } from "../tool";
+import type { GeneratedCode, LLMAdapter } from "../types";
 
 // Minimal type definitions for Anthropic SDK
 
@@ -20,9 +19,9 @@ interface AnthropicClient {
 }
 
 interface SystemContentBlock {
-  type: 'text';
+  type: "text";
   text: string;
-  cache_control?: { type: 'ephemeral' };
+  cache_control?: { type: "ephemeral" };
 }
 
 interface MessageCreateParams {
@@ -34,7 +33,7 @@ interface MessageCreateParams {
 }
 
 interface MessageParam {
-  role: 'user' | 'assistant';
+  role: "user" | "assistant";
   content: string | ContentBlock[];
 }
 
@@ -46,8 +45,8 @@ interface ContentBlock {
 
 interface Message {
   id: string;
-  type: 'message';
-  role: 'assistant';
+  type: "message";
+  role: "assistant";
   content: ContentBlock[];
   model: string;
   stop_reason: string | null;
@@ -63,10 +62,10 @@ interface Message {
  */
 export function isAnthropicClient(client: unknown): client is AnthropicClient {
   return (
-    typeof client === 'object' &&
+    typeof client === "object" &&
     client !== null &&
-    'messages' in client &&
-    typeof (client as AnthropicClient).messages?.create === 'function'
+    "messages" in client &&
+    typeof (client as AnthropicClient).messages?.create === "function"
   );
 }
 
@@ -82,17 +81,17 @@ function createAnthropicAdapter(client: AnthropicClient, model: string): LLMAdap
         // Use structured system prompt with cache_control for prompt caching
         system: [
           {
-            type: 'text',
+            type: "text",
             text: systemPrompt,
-            cache_control: { type: 'ephemeral' },
+            cache_control: { type: "ephemeral" },
           },
         ],
-        messages: [{ role: 'user', content: userRequest }],
+        messages: [{ role: "user", content: userRequest }],
       });
 
-      const textContent = response.content.find((block) => block.type === 'text' && block.text);
+      const textContent = response.content.find((block) => block.type === "text" && block.text);
       if (!textContent?.text) {
-        throw new Error('No text content in response');
+        throw new Error("No text content in response");
       }
 
       return {
@@ -119,7 +118,9 @@ export function wrapAnthropicClient<T extends AnthropicClient>(
   config: SupertoolsConfig
 ): T {
   normalizeTools(tools); // Validate tools once
-  const log = config.debug ? (...args: unknown[]) => console.log('[Supertools]', ...args) : () => {};
+  const log = config.debug
+    ? (...args: unknown[]) => console.log("[Supertools]", ...args)
+    : () => {};
 
   // Cache executor per model to avoid re-normalizing tools on every request
   const executorCache = new Map<string, ProgrammaticExecutor>();
@@ -144,7 +145,7 @@ export function wrapAnthropicClient<T extends AnthropicClient>(
   // Create a proxy that intercepts messages.create
   const messagesProxy = new Proxy(client.messages, {
     get(target, prop) {
-      if (prop === 'create') {
+      if (prop === "create") {
         return async (params: MessageCreateParams) => {
           // If no tools configured, pass through to original
           if (tools.length === 0) {
@@ -153,19 +154,19 @@ export function wrapAnthropicClient<T extends AnthropicClient>(
 
           // Extract the last user message as the request
           const lastMessage = params.messages[params.messages.length - 1];
-          if (lastMessage?.role !== 'user') {
+          if (lastMessage?.role !== "user") {
             return target.create(params);
           }
 
           const userRequest =
-            typeof lastMessage.content === 'string'
+            typeof lastMessage.content === "string"
               ? lastMessage.content
               : lastMessage.content
-                  .filter((block) => block.type === 'text' && block.text)
+                  .filter((block) => block.type === "text" && block.text)
                   .map((block) => block.text!)
-                  .join('\n');
+                  .join("\n");
 
-          log('Intercepted messages.create with user request for tool execution.');
+          log("Intercepted messages.create with user request for tool execution.");
 
           // Use cached executor for this model
           const executor = getExecutor(params.model);
@@ -174,18 +175,18 @@ export function wrapAnthropicClient<T extends AnthropicClient>(
           // Return response in Anthropic format
           const response: Message = {
             id: `msg_${Date.now()}`,
-            type: 'message',
-            role: 'assistant',
+            type: "message",
+            role: "assistant",
             content: [
               {
-                type: 'text',
+                type: "text",
                 text: result.result.success
-                  ? result.result.output || 'Task completed successfully.'
+                  ? result.result.output || "Task completed successfully."
                   : `Error: ${result.result.error}`,
               },
             ],
             model: params.model,
-            stop_reason: 'end_turn',
+            stop_reason: "end_turn",
             stop_sequence: null,
             usage: {
               input_tokens: result.usage?.inputTokens ?? 0,
@@ -194,7 +195,7 @@ export function wrapAnthropicClient<T extends AnthropicClient>(
           };
 
           // Attach execution metadata for debugging
-          Object.defineProperty(response, '_supertools', {
+          Object.defineProperty(response, "_supertools", {
             value: {
               code: result.code,
               explanation: result.explanation,
@@ -213,7 +214,7 @@ export function wrapAnthropicClient<T extends AnthropicClient>(
   // Return a proxy of the client with wrapped messages
   return new Proxy(client, {
     get(target, prop) {
-      if (prop === 'messages') {
+      if (prop === "messages") {
         return messagesProxy;
       }
       return Reflect.get(target, prop);

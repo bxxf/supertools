@@ -6,18 +6,6 @@
  * - other servers → routes to local MCP servers in sandbox
  */
 
-interface McpToolCall {
-  server: string;
-  tool: string;
-  arguments: Record<string, unknown>;
-}
-
-interface McpResult {
-  success: boolean;
-  result?: unknown;
-  error?: string;
-}
-
 type RemoteCallFn = (tool: string, args: Record<string, unknown>) => Promise<unknown>;
 
 interface McpServerProcess {
@@ -36,7 +24,7 @@ export class McpRouter {
   }
 
   private log(...args: unknown[]): void {
-    if (this.debug) console.log('[McpRouter]', ...args);
+    if (this.debug) console.log("[McpRouter]", ...args);
   }
 
   /**
@@ -57,7 +45,7 @@ export class McpRouter {
     this.log(`Calling: ${server}.${tool}`, args);
 
     // Route to appropriate handler
-    if (server === 'host') {
+    if (server === "host") {
       // Host tools go through the relay
       return this.remoteCall(tool, args);
     }
@@ -65,7 +53,9 @@ export class McpRouter {
     // Local MCP server
     const mcpServer = this.servers.get(server);
     if (!mcpServer) {
-      throw new Error(`Unknown MCP server: ${server}. Available: host, ${Array.from(this.servers.keys()).join(', ')}`);
+      throw new Error(
+        `Unknown MCP server: ${server}. Available: host, ${Array.from(this.servers.keys()).join(", ")}`
+      );
     }
 
     try {
@@ -82,7 +72,7 @@ export class McpRouter {
    * Parse 'server.tool_name' into [server, tool]
    */
   private parseToolName(fullName: string): [string, string] {
-    const dotIndex = fullName.indexOf('.');
+    const dotIndex = fullName.indexOf(".");
     if (dotIndex === -1) {
       throw new Error(`Invalid tool name: ${fullName}. Expected format: server.tool_name`);
     }

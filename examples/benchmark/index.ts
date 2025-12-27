@@ -13,8 +13,8 @@
  */
 
 import Anthropic from "@anthropic-ai/sdk";
+import { defineTool, SANDBOX_TEMPLATE, supertools, z } from "@supertools-ai/core";
 import { Sandbox } from "e2b";
-import { supertools, defineTool, z, SANDBOX_TEMPLATE } from "@supertools-ai/core";
 
 // -----------------------------------------------------------------------------
 // Configuration
@@ -26,9 +26,20 @@ const MAX_TOKENS = 2048;
 const BENCHMARKS = [
   { name: "Simple (1 tool)", prompt: "Get all user IDs" },
   { name: "Medium (3 tools)", prompt: "Get user IDs, then get user details for user 1 and user 2" },
-  { name: "Sequential (5 tools)", prompt: "Get user IDs, then get user details for the first 4 users" },
-  { name: "Heavy (10+ tools)", prompt: "Get all user IDs, then for each of the first 8 users: get their user details AND their orders. Calculate total spending per user." },
-  { name: "Insane (30+ tools)", prompt: "Get all user IDs. Then for EVERY user: call getUser to get their details, then call getUserOrders to get their orders. Calculate each user's total spending. Return a report with each user's name and total. You MUST call both getUser and getUserOrders for each user individually." },
+  {
+    name: "Sequential (5 tools)",
+    prompt: "Get user IDs, then get user details for the first 4 users",
+  },
+  {
+    name: "Heavy (10+ tools)",
+    prompt:
+      "Get all user IDs, then for each of the first 8 users: get their user details AND their orders. Calculate total spending per user.",
+  },
+  {
+    name: "Insane (30+ tools)",
+    prompt:
+      "Get all user IDs. Then for EVERY user: call getUser to get their details, then call getUserOrders to get their orders. Calculate each user's total spending. Return a report with each user's name and total. You MUST call both getUser and getUserOrders for each user individually.",
+  },
 ];
 
 // -----------------------------------------------------------------------------
@@ -156,7 +167,8 @@ async function runNative(client: Anthropic, prompt: string): Promise<Metrics> {
     },
     {
       name: "getUserOrders",
-      description: "Get orders for a specific user. REQUIRES userId parameter. No way to get all orders at once.",
+      description:
+        "Get orders for a specific user. REQUIRES userId parameter. No way to get all orders at once.",
       input_schema: {
         type: "object",
         properties: { userId: { type: "number", description: "User ID (required)" } },
@@ -236,7 +248,8 @@ async function runAnthropicBeta(client: Anthropic, prompt: string): Promise<Metr
     } as Anthropic.Beta.BetaTool,
     {
       name: "getUserOrders",
-      description: "Get orders for a specific user. REQUIRES userId. No batch endpoint. Returns [{id, userId, total}].",
+      description:
+        "Get orders for a specific user. REQUIRES userId. No batch endpoint. Returns [{id, userId, total}].",
       input_schema: {
         type: "object" as const,
         properties: { userId: { type: "number", description: "User ID (required)" } },
@@ -296,7 +309,11 @@ async function runAnthropicBeta(client: Anthropic, prompt: string): Promise<Metr
 // Supertools
 // -----------------------------------------------------------------------------
 
-async function runSupertools(client: Anthropic, sandbox: Sandbox, prompt: string): Promise<Metrics> {
+async function runSupertools(
+  client: Anthropic,
+  sandbox: Sandbox,
+  prompt: string
+): Promise<Metrics> {
   const start = Date.now();
   let apiCalls = 0;
   let toolCalls = 0;
@@ -374,11 +391,15 @@ async function runBenchmark(
 
   process.stdout.write("[Anthropic Beta] ");
   const anthropicBeta = await runAnthropicBeta(client, prompt);
-  console.log(`${anthropicBeta.timeMs}ms | ${anthropicBeta.apiCalls} calls | ${anthropicBeta.tokens} tok`);
+  console.log(
+    `${anthropicBeta.timeMs}ms | ${anthropicBeta.apiCalls} calls | ${anthropicBeta.tokens} tok`
+  );
 
   process.stdout.write("[Supertools]     ");
   const supertoolsResult = await runSupertools(client, sandbox, prompt);
-  console.log(`${supertoolsResult.timeMs}ms | ${supertoolsResult.apiCalls} calls | ${supertoolsResult.tokens} tok`);
+  console.log(
+    `${supertoolsResult.timeMs}ms | ${supertoolsResult.apiCalls} calls | ${supertoolsResult.tokens} tok`
+  );
 
   return { native, anthropicBeta, supertools: supertoolsResult };
 }
@@ -392,19 +413,46 @@ function printSummary(results: Result[]) {
 
   const totals = {
     native: {
-      timeMs: sum(results.map((r) => r.native), "timeMs"),
-      apiCalls: sum(results.map((r) => r.native), "apiCalls"),
-      tokens: sum(results.map((r) => r.native), "tokens"),
+      timeMs: sum(
+        results.map((r) => r.native),
+        "timeMs"
+      ),
+      apiCalls: sum(
+        results.map((r) => r.native),
+        "apiCalls"
+      ),
+      tokens: sum(
+        results.map((r) => r.native),
+        "tokens"
+      ),
     },
     anthropicBeta: {
-      timeMs: sum(results.map((r) => r.anthropicBeta), "timeMs"),
-      apiCalls: sum(results.map((r) => r.anthropicBeta), "apiCalls"),
-      tokens: sum(results.map((r) => r.anthropicBeta), "tokens"),
+      timeMs: sum(
+        results.map((r) => r.anthropicBeta),
+        "timeMs"
+      ),
+      apiCalls: sum(
+        results.map((r) => r.anthropicBeta),
+        "apiCalls"
+      ),
+      tokens: sum(
+        results.map((r) => r.anthropicBeta),
+        "tokens"
+      ),
     },
     supertools: {
-      timeMs: sum(results.map((r) => r.supertools), "timeMs"),
-      apiCalls: sum(results.map((r) => r.supertools), "apiCalls"),
-      tokens: sum(results.map((r) => r.supertools), "tokens"),
+      timeMs: sum(
+        results.map((r) => r.supertools),
+        "timeMs"
+      ),
+      apiCalls: sum(
+        results.map((r) => r.supertools),
+        "apiCalls"
+      ),
+      tokens: sum(
+        results.map((r) => r.supertools),
+        "tokens"
+      ),
     },
   };
 
@@ -419,9 +467,15 @@ function printSummary(results: Result[]) {
   console.log(`\n${"═".repeat(70)}`);
   console.log("TOTALS");
   console.log(`${"═".repeat(70)}`);
-  console.log(`Native:          ${totals.native.timeMs}ms | ${totals.native.apiCalls} calls | ${totals.native.tokens} tok`);
-  console.log(`Anthropic Beta:  ${totals.anthropicBeta.timeMs}ms | ${totals.anthropicBeta.apiCalls} calls | ${totals.anthropicBeta.tokens} tok`);
-  console.log(`Supertools:      ${totals.supertools.timeMs}ms | ${totals.supertools.apiCalls} calls | ${totals.supertools.tokens} tok`);
+  console.log(
+    `Native:          ${totals.native.timeMs}ms | ${totals.native.apiCalls} calls | ${totals.native.tokens} tok`
+  );
+  console.log(
+    `Anthropic Beta:  ${totals.anthropicBeta.timeMs}ms | ${totals.anthropicBeta.apiCalls} calls | ${totals.anthropicBeta.tokens} tok`
+  );
+  console.log(
+    `Supertools:      ${totals.supertools.timeMs}ms | ${totals.supertools.apiCalls} calls | ${totals.supertools.tokens} tok`
+  );
 
   console.log(`\n${"═".repeat(70)}`);
   console.log("SUPERTOOLS vs NATIVE");
@@ -436,7 +490,6 @@ function printSummary(results: Result[]) {
   console.log(`Time:      ${speedup(totals.anthropicBeta.timeMs, totals.supertools.timeMs)}`);
   console.log(`Tokens:    ${pct(totals.anthropicBeta.tokens, totals.supertools.tokens)}`);
   console.log(`API Calls: ${pct(totals.anthropicBeta.apiCalls, totals.supertools.apiCalls)}`);
-
 }
 
 // -----------------------------------------------------------------------------

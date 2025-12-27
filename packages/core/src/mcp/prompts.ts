@@ -5,7 +5,7 @@
  * Tools are called via: await mcp.call('server.tool_name', { args })
  */
 
-import type { McpTool } from './types';
+import type { McpTool } from "./types";
 
 export function buildMcpSystemPrompt(
   tools: readonly McpTool[],
@@ -72,7 +72,7 @@ return { issueUrl: issue.html_url };
 <output_format>
 Return ONLY executable JavaScript in a \`\`\`javascript code block. No explanations.
 </output_format>
-${additionalInstructions ? `\n<additional_instructions>\n${additionalInstructions}\n</additional_instructions>` : ''}
+${additionalInstructions ? `\n<additional_instructions>\n${additionalInstructions}\n</additional_instructions>` : ""}
 <available_tools>
 ${toolDocs}
 </available_tools>
@@ -80,12 +80,12 @@ ${toolDocs}
 }
 
 function generateMcpToolDocs(tools: readonly McpTool[]): string {
-  if (tools.length === 0) return '// No tools available';
+  if (tools.length === 0) return "// No tools available";
 
   const lines: string[] = [
-    '// MCP Tools',
-    '// Call with: await mcp.call(\'server.tool_name\', { args })',
-    '',
+    "// MCP Tools",
+    "// Call with: await mcp.call('server.tool_name', { args })",
+    "",
   ];
 
   // Group by server
@@ -96,10 +96,10 @@ function generateMcpToolDocs(tools: readonly McpTool[]): string {
     for (const tool of serverTools) {
       lines.push(generateToolDoc(tool));
     }
-    lines.push('');
+    lines.push("");
   }
 
-  return lines.join('\n');
+  return lines.join("\n");
 }
 
 /**
@@ -121,22 +121,17 @@ function groupByServer(tools: readonly McpTool[]): Map<string, McpTool[]> {
 function generateToolDoc(tool: McpTool): string {
   const fullName = `${tool.server}.${tool.name}`;
   const params = generateParamsDoc(tool.inputSchema);
-  const returns = tool.outputSchema
-    ? jsonSchemaToTsType(tool.outputSchema)
-    : 'unknown';
+  const returns = tool.outputSchema ? jsonSchemaToTsType(tool.outputSchema) : "unknown";
 
-  const lines = [
-    `/**`,
-    ` * ${tool.description}`,
-  ];
+  const lines = [`/**`, ` * ${tool.description}`];
 
   // Document parameters
   const props = tool.inputSchema.properties;
   const required = new Set(tool.inputSchema.required ?? []);
   for (const [name, schema] of Object.entries(props)) {
     const schemaObj = schema as Record<string, unknown>;
-    const desc = schemaObj.description || 'No description';
-    const opt = !required.has(name) ? ' (optional)' : '';
+    const desc = schemaObj.description || "No description";
+    const opt = !required.has(name) ? " (optional)" : "";
     lines.push(` * @param ${name} - ${desc}${opt}`);
   }
 
@@ -147,25 +142,28 @@ function generateToolDoc(tool: McpTool): string {
   lines.push(` */`);
   lines.push(`// mcp.call('${fullName}', ${params}): Promise<${returns}>`);
 
-  return lines.join('\n');
+  return lines.join("\n");
 }
 
 /**
  * Generate TypeScript-like params documentation
  */
-function generateParamsDoc(schema: { properties: Record<string, unknown>; required?: readonly string[] }): string {
+function generateParamsDoc(schema: {
+  properties: Record<string, unknown>;
+  required?: readonly string[];
+}): string {
   const props = schema.properties;
   const required = new Set(schema.required ?? []);
 
   const entries = Object.entries(props).map(([name, propSchema]) => {
     const schemaObj = propSchema as Record<string, unknown>;
     const type = jsonSchemaToTsType(schemaObj);
-    const opt = !required.has(name) ? '?' : '';
+    const opt = !required.has(name) ? "?" : "";
     return `${name}${opt}: ${type}`;
   });
 
-  if (entries.length === 0) return '{}';
-  return `{ ${entries.join(', ')} }`;
+  if (entries.length === 0) return "{}";
+  return `{ ${entries.join(", ")} }`;
 }
 
 /**
@@ -194,40 +192,40 @@ function jsonSchemaToTsType(schema: Record<string, unknown>): string {
   const type = schema.type as string;
 
   switch (type) {
-    case 'string':
+    case "string":
       if (schema.enum) {
-        return (schema.enum as string[]).map((v) => `'${v}'`).join(' | ');
+        return (schema.enum as string[]).map((v) => `'${v}'`).join(" | ");
       }
-      return 'string';
-    case 'number':
-    case 'integer':
-      return 'number';
-    case 'boolean':
-      return 'boolean';
-    case 'array': {
+      return "string";
+    case "number":
+    case "integer":
+      return "number";
+    case "boolean":
+      return "boolean";
+    case "array": {
       const items = schema.items as Record<string, unknown> | undefined;
-      const itemType = items ? jsonSchemaToTsType(items) : 'unknown';
+      const itemType = items ? jsonSchemaToTsType(items) : "unknown";
       return `${itemType}[]`;
     }
-    case 'object': {
+    case "object": {
       const props = schema.properties as Record<string, Record<string, unknown>> | undefined;
-      if (!props) return 'Record<string, unknown>';
+      if (!props) return "Record<string, unknown>";
       const required = new Set((schema.required as string[]) ?? []);
       const entries = Object.entries(props)
         .map(([k, v]) => {
-          const opt = !required.has(k) ? '?' : '';
+          const opt = !required.has(k) ? "?" : "";
           return `${k}${opt}: ${jsonSchemaToTsType(v)}`;
         })
-        .join('; ');
+        .join("; ");
       return `{ ${entries} }`;
     }
-    case 'null':
-      return 'null';
+    case "null":
+      return "null";
     default:
       if (schema.anyOf || schema.oneOf) {
         const union = (schema.anyOf || schema.oneOf) as Record<string, unknown>[];
-        return union.map((s) => jsonSchemaToTsType(s)).join(' | ');
+        return union.map((s) => jsonSchemaToTsType(s)).join(" | ");
       }
-      return 'unknown';
+      return "unknown";
   }
 }

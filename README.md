@@ -457,6 +457,7 @@ console.log(result.result.output);  // stdout from execution
 **Coming Soon:**
 - [x] Publish npm package (`@supertools-ai/core`)
 - [x] Publish E2B sandbox template for zero-config setup
+- [ ] Support tools from remote MCP servers ie. from the E2B MCP Gateway
 
 **Providers:**
 - [x] Anthropic SDK

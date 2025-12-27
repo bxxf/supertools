@@ -12,19 +12,17 @@
  */
 
 import Anthropic from "@anthropic-ai/sdk";
-import { Sandbox } from "e2b";
-
 import {
-  supertools,
   defineTool,
-  z,
   type ExecutionEvent,
   SANDBOX_TEMPLATE,
+  supertools,
+  z,
 } from "@supertools-ai/core";
+import { Sandbox } from "e2b";
 
 // See schemas.ts for schema definitions and types
-import { Order, OrderSchema, StatsSchema, User, UserSchema } from "./schemas";
-
+import { type Order, OrderSchema, StatsSchema, type User, UserSchema } from "./schemas";
 
 // =============================================================================
 // Sample data - typed from schemas
@@ -54,8 +52,7 @@ const getUsers = defineTool({
     role: z.enum(["admin", "user"]).optional().describe("Filter by role"),
   }),
   returns: z.array(UserSchema),
-  execute: async ({ role }) =>
-    role ? users.filter((u) => u.role === role) : users,
+  execute: async ({ role }) => (role ? users.filter((u) => u.role === role) : users),
 });
 
 const getOrders = defineTool({
@@ -63,10 +60,7 @@ const getOrders = defineTool({
   description: "Get orders, optionally filtered by user or status",
   parameters: z.object({
     userId: z.number().optional().describe("Filter by user ID"),
-    status: z
-      .enum(["pending", "completed", "shipped"])
-      .optional()
-      .describe("Filter by status"),
+    status: z.enum(["pending", "completed", "shipped"]).optional().describe("Filter by status"),
   }),
   returns: z.array(OrderSchema),
   execute: async ({ userId, status }) => {
@@ -88,8 +82,7 @@ const calculateStats = defineTool({
   // in this case we already have all the values provided from the previous tool calls so no need to call back to host - just compute and return
   local: true,
   execute: async ({ values }) => {
-    if (!values.length)
-      return { mean: 0, min: 0, max: 0, count: 0, sum: 0, median: 0 };
+    if (!values.length) return { mean: 0, min: 0, max: 0, count: 0, sum: 0, median: 0 };
 
     const sorted = [...values].sort((a, b) => a - b);
     const sum = values.reduce((a, b) => a + b, 0);
@@ -97,8 +90,7 @@ const calculateStats = defineTool({
 
     return {
       mean: Math.round((sum / values.length) * 100) / 100,
-      median:
-        sorted.length % 2 ? sorted[mid] : (sorted[mid - 1] + sorted[mid]) / 2,
+      median: sorted.length % 2 ? sorted[mid] : (sorted[mid - 1] + sorted[mid]) / 2,
       min: sorted[0],
       max: sorted[sorted.length - 1],
       sum: Math.round(sum * 100) / 100,
@@ -114,7 +106,7 @@ const calculateStats = defineTool({
 async function main() {
   const apiKey = process.env.E2B_API_KEY;
   if (!apiKey) {
-    throw new Error('E2B_API_KEY environment variable is required');
+    throw new Error("E2B_API_KEY environment variable is required");
   }
 
   // Create sandbox upfront - you manage the lifecycle
@@ -168,12 +160,11 @@ async function main() {
   }
 }
 
-main()
-  .catch((error) => {
-    console.error("Error:", error.message);
-    if (error.cause) console.error("Cause:", error.cause);
-    process.exit(1);
-  });
+main().catch((error) => {
+  console.error("Error:", error.message);
+  if (error.cause) console.error("Cause:", error.cause);
+  process.exit(1);
+});
 
 // =============================================================================
 // Event handler - log tool calls and final result
@@ -185,7 +176,9 @@ const handleEvent = (event: ExecutionEvent) => {
       console.log(`  → Calling ${event.tool}...`);
       break;
     case "tool_result":
-      console.log(`  ✓ ${event.tool} completed (${event.durationMs}ms) with result: ${JSON.stringify(event.result, null, 2).replace(/\n/g, "").replace(/\s+/g, " ")}`);
+      console.log(
+        `  ✓ ${event.tool} completed (${event.durationMs}ms) with result: ${JSON.stringify(event.result, null, 2).replace(/\n/g, "").replace(/\s+/g, " ")}`
+      );
       break;
     case "result":
       console.log("\n📊 Result:");

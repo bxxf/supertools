@@ -38,7 +38,7 @@ export interface McpTool {
  * JSON Schema for tool input parameters
  */
 export interface McpInputSchema {
-  readonly type: 'object';
+  readonly type: "object";
   readonly properties: Record<string, unknown>;
   readonly required?: readonly string[];
 }
@@ -47,9 +47,9 @@ export interface McpInputSchema {
  * MCP tool call request (JSON-RPC format)
  */
 export interface McpToolCallRequest {
-  readonly jsonrpc: '2.0';
+  readonly jsonrpc: "2.0";
   readonly id: string | number;
-  readonly method: 'tools/call';
+  readonly method: "tools/call";
   readonly params: {
     readonly name: string;
     readonly arguments: Record<string, unknown>;
@@ -60,7 +60,7 @@ export interface McpToolCallRequest {
  * MCP tool call result (JSON-RPC format)
  */
 export interface McpToolCallResult {
-  readonly jsonrpc: '2.0';
+  readonly jsonrpc: "2.0";
   readonly id: string | number;
   readonly result?: {
     readonly content: readonly McpContent[];
@@ -77,17 +77,17 @@ export interface McpToolCallResult {
  * MCP content types
  */
 export type McpContent =
-  | { readonly type: 'text'; readonly text: string }
-  | { readonly type: 'image'; readonly data: string; readonly mimeType: string }
-  | { readonly type: 'resource'; readonly uri: string };
+  | { readonly type: "text"; readonly text: string }
+  | { readonly type: "image"; readonly data: string; readonly mimeType: string }
+  | { readonly type: "resource"; readonly uri: string };
 
 /**
  * MCP list tools request
  */
 export interface McpListToolsRequest {
-  readonly jsonrpc: '2.0';
+  readonly jsonrpc: "2.0";
   readonly id: string | number;
-  readonly method: 'tools/list';
+  readonly method: "tools/list";
   readonly params?: Record<string, never>;
 }
 
@@ -95,7 +95,7 @@ export interface McpListToolsRequest {
  * MCP list tools result
  */
 export interface McpListToolsResult {
-  readonly jsonrpc: '2.0';
+  readonly jsonrpc: "2.0";
   readonly id: string | number;
   readonly result: {
     readonly tools: readonly McpToolDefinition[];
@@ -127,9 +127,9 @@ export type McpMessage =
  * Execute code request (supertools-specific extension)
  */
 export interface McpExecuteRequest {
-  readonly jsonrpc: '2.0';
+  readonly jsonrpc: "2.0";
   readonly id: string | number;
-  readonly method: 'execute';
+  readonly method: "execute";
   readonly params: {
     readonly code: string;
     readonly servers: readonly string[];
@@ -140,9 +140,9 @@ export interface McpExecuteRequest {
  * Result message from code execution
  */
 export interface McpResultMessage {
-  readonly jsonrpc: '2.0';
+  readonly jsonrpc: "2.0";
   readonly id: string | number;
-  readonly method: 'result';
+  readonly method: "result";
   readonly params: {
     readonly data: unknown;
   };
@@ -152,9 +152,9 @@ export interface McpResultMessage {
  * Error message
  */
 export interface McpErrorMessage {
-  readonly jsonrpc: '2.0';
+  readonly jsonrpc: "2.0";
   readonly id: string | number;
-  readonly method: 'error';
+  readonly method: "error";
   readonly params: {
     readonly error: string;
   };

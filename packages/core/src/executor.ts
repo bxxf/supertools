@@ -8,15 +8,21 @@
  * 4. Results return to user
  */
 
-import { randomUUID } from 'node:crypto';
-import type { Sandbox } from 'e2b';
-import { RelayClient } from './relay/client';
-import { DEFAULT_RELAY_CONFIG, type RelayConfig } from './relay/types';
-import { RelayConnectionError, CodeGenerationError } from './utils/errors';
-import type { NormalizedTool } from './tool';
-import { normalizeTools } from './tool';
-import type { ExecutorConfig, ExecutionResult, ProgrammaticResult, LLMAdapter, ExecutionEvent } from './types';
-import { zodToolsToMcp, buildMcpSystemPrompt, extractCode, type McpTool } from './mcp';
+import { randomUUID } from "node:crypto";
+import type { Sandbox } from "e2b";
+import { buildMcpSystemPrompt, extractCode, type McpTool, zodToolsToMcp } from "./mcp";
+import { RelayClient } from "./relay/client";
+import { DEFAULT_RELAY_CONFIG, type RelayConfig } from "./relay/types";
+import type { NormalizedTool } from "./tool";
+import { normalizeTools } from "./tool";
+import type {
+  ExecutionEvent,
+  ExecutionResult,
+  ExecutorConfig,
+  LLMAdapter,
+  ProgrammaticResult,
+} from "./types";
+import { CodeGenerationError, RelayConnectionError } from "./utils/errors";
 
 export interface CreateExecutorOptions extends ExecutorConfig {
   readonly llm: LLMAdapter;
@@ -44,7 +50,7 @@ export class ProgrammaticExecutor {
     this.sandbox = options.sandbox;
     this.debug = options.debug ?? false;
     this.onEvent = options.onEvent;
-    this.mcpTools = zodToolsToMcp(options.tools, { serverName: 'host' });
+    this.mcpTools = zodToolsToMcp(options.tools, { serverName: "host" });
     // Pre-compute system prompt once
     this.systemPrompt = buildMcpSystemPrompt(this.mcpTools, options.instructions);
     // Pre-compute local tools map once
@@ -61,7 +67,7 @@ export class ProgrammaticExecutor {
     const totalStart = Date.now();
 
     if (this.debug) {
-      this.log('Generating code for:', userRequest);
+      this.log("Generating code for:", userRequest);
     }
 
     const token = randomUUID();
@@ -76,26 +82,26 @@ export class ProgrammaticExecutor {
 
     const [generated, relayClient] = await Promise.all([
       this.generateCode(userRequest, this.systemPrompt).then((r) => {
-        this.logTiming('Code generation', codeGenStart);
+        this.logTiming("Code generation", codeGenStart);
         return r;
       }),
       this.connectRelay(wsUrl, token).then((r) => {
-        this.logTiming('Relay connect', relayConnectStart);
+        this.logTiming("Relay connect", relayConnectStart);
         return r;
       }),
     ]);
 
     const code = extractCode(generated.code);
-    this.log('Generated code:', code.replace(/\s+/g, ' '));
-    this.log('LLM Usage (in tokens):', generated.usage?.inputTokens);
-    this.log('LLM Usage (out tokens):', generated.usage?.outputTokens);
+    this.log("Generated code:", code.replace(/\s+/g, " "));
+    this.log("LLM Usage (in tokens):", generated.usage?.inputTokens);
+    this.log("LLM Usage (out tokens):", generated.usage?.outputTokens);
 
-    this.emit({ type: 'code_generated', code, explanation: generated.explanation });
-    this.emit({ type: 'sandbox_ready', sandboxId: this.sandbox.sandboxId });
+    this.emit({ type: "code_generated", code, explanation: generated.explanation });
+    this.emit({ type: "sandbox_ready", sandboxId: this.sandbox.sandboxId });
 
     const result = await this.executeCodeWithRelay(code, relayClient, relayConfig);
 
-    this.logTiming('Total', totalStart);
+    this.logTiming("Total", totalStart);
 
     return {
       code,
@@ -124,7 +130,7 @@ export class ProgrammaticExecutor {
     const startTime = Date.now();
 
     try {
-      this.log('Executing code directly via relay...');
+      this.log("Executing code directly via relay...");
       const execStart = Date.now();
 
       // Send code to relay with local tool code for sandbox execution
@@ -135,21 +141,21 @@ export class ProgrammaticExecutor {
       // Wait for result or error (use configured timeout)
       const timeoutMs = relayConfig.timeout * 1000;
       const result = await relayClient.waitForResult(timeoutMs);
-      this.logTiming('Code execution', execStart);
+      this.logTiming("Code execution", execStart);
 
       if (result.success) {
-        this.emit({ type: 'complete', success: true, output: '' });
+        this.emit({ type: "complete", success: true, output: "" });
         return {
           success: true,
-          output: '',
+          output: "",
           executionTimeMs: Date.now() - startTime,
         };
       } else {
-        const error = result.error ?? 'Execution failed';
-        this.emit({ type: 'complete', success: false, output: '', error });
+        const error = result.error ?? "Execution failed";
+        this.emit({ type: "complete", success: false, output: "", error });
         return {
           success: false,
-          output: '',
+          output: "",
           error,
           executionTimeMs: Date.now() - startTime,
         };
@@ -168,31 +174,33 @@ export class ProgrammaticExecutor {
   }
 
   getToolDocumentation(): string {
-    return this.systemPrompt.split('<available_tools>')[1]?.split('</available_tools>')[0]?.trim() ?? '';
+    return (
+      this.systemPrompt.split("<available_tools>")[1]?.split("</available_tools>")[0]?.trim() ?? ""
+    );
   }
 
   private async generateCode(request: string, systemPrompt: string) {
     try {
       return await this.llm.generateCode(request, systemPrompt);
     } catch (error) {
-      const message = error instanceof Error ? error.message : 'Unknown error';
+      const message = error instanceof Error ? error.message : "Unknown error";
 
       // Detect common errors and provide cleaner messages
-      if (message.includes('Could not resolve authentication')) {
+      if (message.includes("Could not resolve authentication")) {
         throw new CodeGenerationError(
-          'Missing ANTHROPIC_API_KEY. Set it with: export ANTHROPIC_API_KEY=your-key'
+          "Missing ANTHROPIC_API_KEY. Set it with: export ANTHROPIC_API_KEY=your-key"
         );
       }
-      if (message.includes('not_found_error') && message.includes('model:')) {
+      if (message.includes("not_found_error") && message.includes("model:")) {
         const modelMatch = message.match(/model:\s*([^\s"]+)/);
-        const model = modelMatch?.[1] || 'unknown';
+        const model = modelMatch?.[1] || "unknown";
         throw new CodeGenerationError(
           `Model "${model}" not found. Try: claude-sonnet-4-5 or claude-haiku-4-5`
         );
       }
-      if (message.includes('invalid_api_key') || message.includes('Invalid API Key')) {
+      if (message.includes("invalid_api_key") || message.includes("Invalid API Key")) {
         throw new CodeGenerationError(
-          'Invalid ANTHROPIC_API_KEY. Check your key at console.anthropic.com'
+          "Invalid ANTHROPIC_API_KEY. Check your key at console.anthropic.com"
         );
       }
 
@@ -215,11 +223,11 @@ export class ProgrammaticExecutor {
       await client.connect();
       return client;
     } catch (error) {
-      const message = error instanceof Error ? error.message : 'Unknown error';
+      const message = error instanceof Error ? error.message : "Unknown error";
 
-      if (message.includes('ECONNREFUSED') || message.includes('timeout')) {
+      if (message.includes("ECONNREFUSED") || message.includes("timeout")) {
         throw new RelayConnectionError(
-          'Could not connect to sandbox. Make sure E2B sandbox is running and accessible.'
+          "Could not connect to sandbox. Make sure E2B sandbox is running and accessible."
         );
       }
 
@@ -231,10 +239,10 @@ export class ProgrammaticExecutor {
     if (client) {
       try {
         await client.disconnect();
-        this.log('Relay client disconnected');
+        this.log("Relay client disconnected");
       } catch (error) {
         // Log actual error for debugging, but don't throw - cleanup must complete
-        this.log('Error disconnecting relay:', error instanceof Error ? error.message : error);
+        this.log("Error disconnecting relay:", error instanceof Error ? error.message : error);
       }
     }
     // Note: Sandbox lifecycle is managed by the caller, not the executor
@@ -242,7 +250,7 @@ export class ProgrammaticExecutor {
   }
 
   private log(...args: unknown[]): void {
-    if (this.debug) console.log('[Executor]', ...args);
+    if (this.debug) console.log("[Executor]", ...args);
   }
 
   private logTiming(step: string, startTime: number): void {

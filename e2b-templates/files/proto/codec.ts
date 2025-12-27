@@ -5,16 +5,16 @@
  * Generated from relay.proto via `bun run proto`
  */
 
-import { relay } from './generated.js';
+import { relay } from "./generated.js";
 
 export type MessageType =
-  | 'tool_call'
-  | 'tool_result'
-  | 'execute'
-  | 'result'
-  | 'error'
-  | 'ping'
-  | 'pong';
+  | "tool_call"
+  | "tool_result"
+  | "execute"
+  | "result"
+  | "error"
+  | "ping"
+  | "pong";
 
 export interface DecodedMessage {
   type: MessageType;
@@ -42,7 +42,7 @@ export function encode(type: MessageType, payload: Record<string, unknown>): Uin
   let message: relay.IMessage;
 
   switch (type) {
-    case 'tool_call':
+    case "tool_call":
       message = {
         toolCall: {
           id: payload.id as string,
@@ -52,7 +52,7 @@ export function encode(type: MessageType, payload: Record<string, unknown>): Uin
       };
       break;
 
-    case 'tool_result':
+    case "tool_result":
       message = {
         toolResult: {
           id: payload.id as string,
@@ -63,7 +63,7 @@ export function encode(type: MessageType, payload: Record<string, unknown>): Uin
       };
       break;
 
-    case 'execute':
+    case "execute":
       message = {
         execute: {
           code: payload.code as string,
@@ -73,11 +73,11 @@ export function encode(type: MessageType, payload: Record<string, unknown>): Uin
       };
       break;
 
-    case 'result':
+    case "result":
       message = { result: { data: toBytes(payload.data) } };
       break;
 
-    case 'error':
+    case "error":
       message = {
         error: {
           id: payload.id as string | undefined,
@@ -87,11 +87,11 @@ export function encode(type: MessageType, payload: Record<string, unknown>): Uin
       };
       break;
 
-    case 'ping':
+    case "ping":
       message = { ping: { id: payload.id as string } };
       break;
 
-    case 'pong':
+    case "pong":
       message = { pong: { id: payload.id as string } };
       break;
 
@@ -108,17 +108,19 @@ export function decode(buffer: Uint8Array | ArrayBuffer): DecodedMessage {
 
   if (msg.toolCall) {
     return {
-      type: 'tool_call',
-      id: msg.toolCall.id ?? '',
-      tool: msg.toolCall.tool ?? '',
-      arguments: msg.toolCall.arguments ? (fromBytes(msg.toolCall.arguments) as Record<string, unknown>) : {},
+      type: "tool_call",
+      id: msg.toolCall.id ?? "",
+      tool: msg.toolCall.tool ?? "",
+      arguments: msg.toolCall.arguments
+        ? (fromBytes(msg.toolCall.arguments) as Record<string, unknown>)
+        : {},
     };
   }
 
   if (msg.toolResult) {
     return {
-      type: 'tool_result',
-      id: msg.toolResult.id ?? '',
+      type: "tool_result",
+      id: msg.toolResult.id ?? "",
       success: msg.toolResult.success ?? false,
       result: msg.toolResult.result?.length ? fromBytes(msg.toolResult.result) : undefined,
       error: msg.toolResult.error || undefined,
@@ -127,8 +129,8 @@ export function decode(buffer: Uint8Array | ArrayBuffer): DecodedMessage {
 
   if (msg.execute) {
     return {
-      type: 'execute',
-      code: msg.execute.code ?? '',
+      type: "execute",
+      code: msg.execute.code ?? "",
       remoteTools: msg.execute.remoteTools || [],
       localTools: msg.execute.localTools || {},
     };
@@ -136,29 +138,29 @@ export function decode(buffer: Uint8Array | ArrayBuffer): DecodedMessage {
 
   if (msg.result) {
     return {
-      type: 'result',
+      type: "result",
       data: msg.result.data ? fromBytes(msg.result.data) : undefined,
     };
   }
 
   if (msg.error) {
     return {
-      type: 'error',
+      type: "error",
       id: msg.error.id || undefined,
-      error: msg.error.error ?? '',
+      error: msg.error.error ?? "",
       code: msg.error.code || undefined,
     };
   }
 
   if (msg.ping) {
-    return { type: 'ping', id: msg.ping.id ?? '' };
+    return { type: "ping", id: msg.ping.id ?? "" };
   }
 
   if (msg.pong) {
-    return { type: 'pong', id: msg.pong.id ?? '' };
+    return { type: "pong", id: msg.pong.id ?? "" };
   }
 
-  throw new Error('Unknown message type');
+  throw new Error("Unknown message type");
 }
 
 export function isBinary(data: unknown): data is ArrayBuffer | Uint8Array {

@@ -1,5 +1,5 @@
-import { Sandbox } from 'e2b';
-import { SANDBOX_TEMPLATE } from '@supertools-ai/core';
+import { SANDBOX_TEMPLATE } from "@supertools-ai/core";
+import { Sandbox } from "e2b";
 
 export class SandboxPool {
   private available: Sandbox[] = [];
@@ -21,7 +21,7 @@ export class SandboxPool {
 
     // Prevent unbounded creation from concurrent acquire() calls
     if (this.inFlight + this.activeCount >= this.maxSize) {
-      throw new Error('Too many sandboxes in flight');
+      throw new Error("Too many sandboxes in flight");
     }
 
     this.inFlight++;
@@ -38,9 +38,7 @@ export class SandboxPool {
   async release(sandbox: Sandbox): Promise<void> {
     if (this.available.length < this.maxSize) {
       this.available.push(sandbox);
-      console.log(
-        `  [pool] Returned to pool (${this.available.length}/${this.maxSize})`
-      );
+      console.log(`  [pool] Returned to pool (${this.available.length}/${this.maxSize})`);
     } else {
       try {
         await sandbox.kill();

@@ -1,15 +1,15 @@
 /**
  * Relay Client
- *  
+ *
  *
  * WebSocket client for bidirectional communication with the sandbox relay.
  * Uses Protocol Buffers for efficient binary encoding.
  */
 
-import type { NormalizedTool } from '../tool';
-import type { ExecutionEvent } from '../types';
-import { encode, decode, type MessageType, type DecodedMessage } from './proto';
-import { SANDBOX_TEMPLATE } from '../constants';
+import { SANDBOX_TEMPLATE } from "../constants";
+import type { NormalizedTool } from "../tool";
+import type { ExecutionEvent } from "../types";
+import { type DecodedMessage, decode, encode, type MessageType } from "./proto";
 
 export interface RelayClientConfig {
   url: string;
@@ -37,7 +37,8 @@ export class RelayClient {
   private ws: WebSocket | null = null;
   private retryCount = 0;
   private closing = false;
-  private readonly config: Required<Omit<RelayClientConfig, 'onEvent'>> & Pick<RelayClientConfig, 'onEvent'>;
+  private readonly config: Required<Omit<RelayClientConfig, "onEvent">> &
+    Pick<RelayClientConfig, "onEvent">;
   private readonly log: (...args: unknown[]) => void;
   private readonly emit: (event: ExecutionEvent) => void;
 
@@ -59,7 +60,7 @@ export class RelayClient {
       onEvent: config.onEvent,
     };
 
-    this.log = this.config.debug ? (...args) => console.log('[RelayClient]', ...args) : () => {};
+    this.log = this.config.debug ? (...args) => console.log("[RelayClient]", ...args) : () => {};
     this.emit = config.onEvent ?? (() => {});
   }
 
@@ -92,7 +93,7 @@ export class RelayClient {
 
       if (ws.readyState === WebSocket.OPEN) {
         ws.onclose = cleanup;
-        ws.close(1000, 'Client disconnect');
+        ws.close(1000, "Client disconnect");
         timeout = setTimeout(cleanup, 5000);
       } else {
         cleanup();
@@ -102,8 +103,8 @@ export class RelayClient {
 
   execute(code: string, remoteTools: string[], localTools: Record<string, string> = {}): void {
     this.resetState();
-    this.log('Executing code');
-    this.send('execute', { code, remoteTools, localTools });
+    this.log("Executing code");
+    this.send("execute", { code, remoteTools, localTools });
   }
 
   waitForResult(timeoutMs: number): Promise<{ success: boolean; error?: string }> {
@@ -113,7 +114,7 @@ export class RelayClient {
     return new Promise((resolve) => {
       const timeout = setTimeout(() => {
         this.state.resolver = null;
-        resolve({ success: false, error: 'Execution timeout' });
+        resolve({ success: false, error: "Execution timeout" });
       }, timeoutMs);
 
       this.state.resolver = (result) => {
@@ -143,12 +144,12 @@ export class RelayClient {
       this.ws = new WebSocket(this.config.url, {
         headers: { Authorization: `Bearer ${this.config.token}` },
       } as { headers: Record<string, string> });
-      this.ws.binaryType = 'arraybuffer';
+      this.ws.binaryType = "arraybuffer";
 
       this.ws.onopen = () => {
         clearTimeout(timeout);
         this.retryCount = 0;
-        this.log('Connected');
+        this.log("Connected");
         resolve();
       };
 
@@ -163,7 +164,7 @@ export class RelayClient {
 
       this.ws.onerror = () => {
         clearTimeout(timeout);
-        reject(new Error('WebSocket error'));
+        reject(new Error("WebSocket error"));
       };
     });
   }
@@ -175,7 +176,7 @@ export class RelayClient {
     }
 
     this.retryCount++;
-    const delay = Math.min(1000 * Math.pow(2, this.retryCount - 1), MAX_BACKOFF);
+    const delay = Math.min(1000 * 2 ** (this.retryCount - 1), MAX_BACKOFF);
     this.log(`Reconnecting in ${delay}ms (attempt ${this.retryCount})`);
 
     await new Promise((r) => setTimeout(r, delay));
@@ -190,7 +191,7 @@ export class RelayClient {
 
   private onMessage(data: unknown): void {
     // Detect old JSON-based sandbox template
-    if (typeof data === 'string') {
+    if (typeof data === "string") {
       const error = `Sandbox template version mismatch. You are using an old sandbox template that uses JSON protocol. Please update to '${SANDBOX_TEMPLATE}' or later: Sandbox.create('${SANDBOX_TEMPLATE}')`;
       this.log(error);
       this.state.error = error;
@@ -202,7 +203,7 @@ export class RelayClient {
     // Normalize binary data to ArrayBuffer (handles Node.js Buffer, Uint8Array, etc.)
     const buffer = this.toArrayBuffer(data);
     if (!buffer) {
-      this.log('Expected binary message');
+      this.log("Expected binary message");
       return;
     }
 
@@ -215,7 +216,7 @@ export class RelayClient {
     try {
       msg = decode(buffer);
     } catch (e) {
-      this.log('Decode error:', e);
+      this.log("Decode error:", e);
       return;
     }
 
@@ -224,50 +225,54 @@ export class RelayClient {
 
   private handleMessage(msg: DecodedMessage): void {
     switch (msg.type) {
-      case 'tool_call':
-        this.handleToolCall(msg.id ?? '', msg.tool ?? '', msg.arguments ?? {});
+      case "tool_call":
+        this.handleToolCall(msg.id ?? "", msg.tool ?? "", msg.arguments ?? {});
         break;
 
-      case 'result':
+      case "result":
         this.state.resolved = true;
-        this.emit({ type: 'result', data: msg.data });
+        this.emit({ type: "result", data: msg.data });
         this.state.resolver?.({ success: true });
         this.state.resolver = null;
         break;
 
-      case 'error':
-        this.state.error = msg.error ?? 'Unknown error';
+      case "error":
+        this.state.error = msg.error ?? "Unknown error";
         this.state.resolver?.({ success: false, error: this.state.error });
         this.state.resolver = null;
         break;
 
-      case 'ping':
-        this.send('pong', { id: msg.id ?? '' });
+      case "ping":
+        this.send("pong", { id: msg.id ?? "" });
         break;
     }
   }
 
-  private async handleToolCall(id: string, name: string, args: Record<string, unknown>): Promise<void> {
+  private async handleToolCall(
+    id: string,
+    name: string,
+    args: Record<string, unknown>
+  ): Promise<void> {
     const start = Date.now();
     this.log(`Tool: ${name}`);
-    this.emit({ type: 'tool_call', tool: name, arguments: args, callId: id });
+    this.emit({ type: "tool_call", tool: name, arguments: args, callId: id });
 
     const tool = this.config.tools.get(name);
     if (!tool) {
-      this.emit({ type: 'tool_error', tool: name, error: 'Unknown tool', callId: id });
-      this.send('tool_result', { id, success: false, error: 'Unknown tool' });
+      this.emit({ type: "tool_error", tool: name, error: "Unknown tool", callId: id });
+      this.send("tool_result", { id, success: false, error: "Unknown tool" });
       return;
     }
 
     try {
       const result = await tool.execute(args);
       const durationMs = Date.now() - start;
-      this.emit({ type: 'tool_result', tool: name, result, callId: id, durationMs });
-      this.send('tool_result', { id, success: true, result });
+      this.emit({ type: "tool_result", tool: name, result, callId: id, durationMs });
+      this.send("tool_result", { id, success: true, result });
     } catch (e) {
-      const error = e instanceof Error ? e.message : 'Execution failed';
-      this.emit({ type: 'tool_error', tool: name, error, callId: id });
-      this.send('tool_result', { id, success: false, error });
+      const error = e instanceof Error ? e.message : "Execution failed";
+      this.emit({ type: "tool_error", tool: name, error, callId: id });
+      this.send("tool_result", { id, success: false, error });
     }
   }
 
@@ -289,14 +294,14 @@ export class RelayClient {
 
   private send(type: MessageType, payload: Record<string, unknown>): void {
     if (!this.connected) {
-      this.log('Not connected');
+      this.log("Not connected");
       return;
     }
 
     try {
       this.ws!.send(encode(type, payload));
     } catch (e) {
-      this.log('Send error:', e);
+      this.log("Send error:", e);
     }
   }
 }

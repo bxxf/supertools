@@ -1,6 +1,6 @@
-import type { z } from 'zod';
-import type { AnyTool } from '../tool';
-import { toSnakeCase } from './string';
+import type { z } from "zod";
+import type { AnyTool } from "../tool";
+import { toSnakeCase } from "./string";
 
 type ZodSchema = z.ZodType;
 
@@ -22,29 +22,31 @@ interface ZodDef {
 const MAX_DEPTH = 10;
 
 export function generateTypeHints(tools: readonly AnyTool[]): string {
-  if (tools.length === 0) return '// No tools available';
+  if (tools.length === 0) return "// No tools available";
 
   const signatures = tools.map(generateToolSignature);
-  return ['// Available Tools', '// Call these as: const result = await tool_name({ args })', '', ...signatures].join('\n');
+  return [
+    "// Available Tools",
+    "// Call these as: const result = await tool_name({ args })",
+    "",
+    ...signatures,
+  ].join("\n");
 }
 
 function generateToolSignature(tool: AnyTool): string {
   const snakeName = toSnakeCase(tool.name);
   const params = generateParams(tool.parameters);
-  const returnType = tool.returns ? zodToJS(tool.returns, 0) : 'any';
+  const returnType = tool.returns ? zodToJS(tool.returns, 0) : "any";
 
-  const lines = [
-    `/**`,
-    ` * ${tool.description}`,
-  ];
+  const lines = [`/**`, ` * ${tool.description}`];
 
   const shape = getObjectShape(tool.parameters);
   if (shape && Object.keys(shape).length > 0) {
     lines.push(` *`);
     for (const [name, schema] of Object.entries(shape)) {
       const desc = getDescription(schema);
-      const opt = isOptional(schema) ? ' (optional)' : '';
-      lines.push(` * @param ${name} - ${desc || 'No description'}${opt}`);
+      const opt = isOptional(schema) ? " (optional)" : "";
+      lines.push(` * @param ${name} - ${desc || "No description"}${opt}`);
     }
   }
 
@@ -55,14 +57,14 @@ function generateToolSignature(tool: AnyTool): string {
 
   lines.push(` */`);
   lines.push(`async function ${snakeName}(${params}): Promise<${returnType}>`);
-  lines.push('');
+  lines.push("");
 
-  return lines.join('\n');
+  return lines.join("\n");
 }
 
 function generateParams(schema: ZodSchema): string {
   const shape = getObjectShape(schema);
-  if (!shape || Object.keys(shape).length === 0) return '';
+  if (!shape || Object.keys(shape).length === 0) return "";
 
   const entries = Object.entries(shape);
   const required: string[] = [];
@@ -78,105 +80,105 @@ function generateParams(schema: ZodSchema): string {
   }
 
   const allParams = [...required, ...optional];
-  if (allParams.length === 0) return '';
+  if (allParams.length === 0) return "";
 
-  return `{ ${allParams.join(', ')} }`;
+  return `{ ${allParams.join(", ")} }`;
 }
 
 function zodToJS(schema: ZodSchema, depth: number): string {
-  if (depth > MAX_DEPTH) return 'any';
+  if (depth > MAX_DEPTH) return "any";
 
   const def = getDef(schema);
   const typeName = def.type;
 
   switch (typeName) {
-    case 'string':
-      return 'string';
-    case 'number':
-      return 'number';
-    case 'boolean':
-      return 'boolean';
-    case 'bigint':
-      return 'bigint';
-    case 'literal': {
+    case "string":
+      return "string";
+    case "number":
+      return "number";
+    case "boolean":
+      return "boolean";
+    case "bigint":
+      return "bigint";
+    case "literal": {
       const val = def.value;
-      if (typeof val === 'string') return `'${val}'`;
+      if (typeof val === "string") return `'${val}'`;
       return String(val);
     }
-    case 'enum': {
+    case "enum": {
       const entries = def.entries;
-      if (!entries || typeof entries !== 'object') return 'string';
+      if (!entries || typeof entries !== "object") return "string";
       const values = Object.values(entries);
-      if (values.length === 0) return 'string';
-      return values.map(v => `'${v}'`).join(' | ');
+      if (values.length === 0) return "string";
+      return values.map((v) => `'${v}'`).join(" | ");
     }
-    case 'array': {
+    case "array": {
       const element = def.element;
       if (element) return `${zodToJS(element, depth + 1)}[]`;
-      return 'any[]';
+      return "any[]";
     }
-    case 'tuple': {
+    case "tuple": {
       const items = def.items ?? [];
-      if (items.length === 0) return '[]';
-      return `[${items.map(i => zodToJS(i, depth + 1)).join(', ')}]`;
+      if (items.length === 0) return "[]";
+      return `[${items.map((i) => zodToJS(i, depth + 1)).join(", ")}]`;
     }
-    case 'set': {
+    case "set": {
       const element = def.element;
       if (element) return `Set<${zodToJS(element, depth + 1)}>`;
-      return 'Set<any>';
+      return "Set<any>";
     }
-    case 'object': {
+    case "object": {
       const shape = getObjectShape(schema);
-      if (!shape || Object.keys(shape).length === 0) return 'object';
+      if (!shape || Object.keys(shape).length === 0) return "object";
       // Generate full object type for better LLM understanding
       const entries = Object.entries(shape).map(([key, val]) => {
         const valType = zodToJS(val, depth + 1);
-        const optional = isOptional(val) ? '?' : '';
+        const optional = isOptional(val) ? "?" : "";
         return `${key}${optional}: ${valType}`;
       });
-      return `{ ${entries.join(', ')} }`;
+      return `{ ${entries.join(", ")} }`;
     }
-    case 'record': {
-      const valType = def.valueType ? zodToJS(def.valueType, depth + 1) : 'any';
+    case "record": {
+      const valType = def.valueType ? zodToJS(def.valueType, depth + 1) : "any";
       return `Record<string, ${valType}>`;
     }
-    case 'map': {
-      const keyType = def.keyType ? zodToJS(def.keyType, depth + 1) : 'any';
-      const valType = def.valueType ? zodToJS(def.valueType, depth + 1) : 'any';
+    case "map": {
+      const keyType = def.keyType ? zodToJS(def.keyType, depth + 1) : "any";
+      const valType = def.valueType ? zodToJS(def.valueType, depth + 1) : "any";
       return `Map<${keyType}, ${valType}>`;
     }
-    case 'union': {
+    case "union": {
       const options = def.options ?? [];
-      if (options.length === 0) return 'any';
-      const types = options.map(o => zodToJS(o, depth + 1));
+      if (options.length === 0) return "any";
+      const types = options.map((o) => zodToJS(o, depth + 1));
       const unique = [...new Set(types)];
-      return unique.join(' | ');
+      return unique.join(" | ");
     }
-    case 'optional':
-    case 'nullable': {
+    case "optional":
+    case "nullable": {
       const inner = def.innerType;
       if (inner) return `${zodToJS(inner, depth + 1)} | null`;
-      return 'any | null';
+      return "any | null";
     }
-    case 'default': {
+    case "default": {
       const inner = def.innerType;
       if (inner) return zodToJS(inner, depth + 1);
-      return 'any';
+      return "any";
     }
-    case 'null':
-      return 'null';
-    case 'undefined':
-    case 'void':
-      return 'undefined';
-    case 'any':
-    case 'unknown':
-      return 'any';
-    case 'never':
-      return 'never';
-    case 'date':
-      return 'Date';
+    case "null":
+      return "null";
+    case "undefined":
+    case "void":
+      return "undefined";
+    case "any":
+    case "unknown":
+      return "any";
+    case "never":
+      return "never";
+    case "date":
+      return "Date";
     default:
-      return 'any';
+      return "any";
   }
 }
 
@@ -188,15 +190,15 @@ function zodToJS(schema: ZodSchema, depth: number): string {
  */
 function getDef(schema: ZodSchema): ZodDef {
   const s = schema as { _zod?: { def?: ZodDef } };
-  return s._zod?.def ?? { type: 'unknown' };
+  return s._zod?.def ?? { type: "unknown" };
 }
 
 function getObjectShape(schema: ZodSchema): Record<string, ZodSchema> | null {
   const def = getDef(schema);
-  if (def.type !== 'object') return null;
+  if (def.type !== "object") return null;
   const shape = def.shape;
   if (!shape) return null;
-  return typeof shape === 'function' ? shape() : shape as Record<string, ZodSchema>;
+  return typeof shape === "function" ? shape() : (shape as Record<string, ZodSchema>);
 }
 
 function getDescription(schema: ZodSchema): string {
@@ -204,11 +206,10 @@ function getDescription(schema: ZodSchema): string {
   if (s.description) return s.description;
   const def = getDef(schema);
   if (def.innerType) return getDescription(def.innerType);
-  return '';
+  return "";
 }
 
 function isOptional(schema: ZodSchema): boolean {
   const def = getDef(schema);
-  return def.type === 'optional' || def.type === 'default' || def.type === 'nullable';
+  return def.type === "optional" || def.type === "default" || def.type === "nullable";
 }
-

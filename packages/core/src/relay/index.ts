@@ -3,14 +3,12 @@
  * WebSocket communication between host and E2B sandbox.
  */
 
-// Config
-export type { RelayConfig } from './types';
-export { DEFAULT_RELAY_CONFIG } from './types';
-
-// Protocol (protobuf)
-export { encode, decode, isBinary } from './proto';
-export type { MessageType, DecodedMessage } from './proto';
-
+export type { RelayClientConfig } from "./client";
 // Client
-export { RelayClient, createRelayClient } from './client';
-export type { RelayClientConfig } from './client';
+export { createRelayClient, RelayClient } from "./client";
+export type { DecodedMessage, MessageType } from "./proto";
+// Protocol (protobuf)
+export { decode, encode, isBinary } from "./proto";
+// Config
+export type { RelayConfig } from "./types";
+export { DEFAULT_RELAY_CONFIG } from "./types";

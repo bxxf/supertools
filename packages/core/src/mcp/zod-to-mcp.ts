@@ -4,9 +4,9 @@
  * Converts Zod tool definitions to MCP-compatible format.
  */
 
-import type { AnyTool } from '../tool';
-import type { McpTool, McpInputSchema } from './types';
-import { toSnakeCase } from '../utils/string';
+import type { AnyTool } from "../tool";
+import { toSnakeCase } from "../utils/string";
+import type { McpInputSchema, McpTool } from "./types";
 
 export interface ZodToMcpOptions {
   /** Server name for these tools (used in tool routing) */
@@ -19,10 +19,12 @@ export function zodToolToMcp(tool: AnyTool, options: ZodToMcpOptions): McpTool {
   const { serverName, includeOutputSchema = true } = options;
 
   // Local tools get 'local' server name, remote tools use provided serverName
-  const server = tool.local ? 'local' : serverName;
+  const server = tool.local ? "local" : serverName;
 
   // Convert parameters schema to JSON Schema using Zod 4's built-in method
-  const jsonSchema = (tool.parameters as { toJSONSchema(): Record<string, unknown> }).toJSONSchema();
+  const jsonSchema = (
+    tool.parameters as { toJSONSchema(): Record<string, unknown> }
+  ).toJSONSchema();
 
   // Extract the input schema in MCP format
   const inputSchema = extractInputSchema(jsonSchema);
@@ -37,7 +39,9 @@ export function zodToolToMcp(tool: AnyTool, options: ZodToMcpOptions): McpTool {
 
   // Optionally include output schema for better code generation
   if (includeOutputSchema && tool.returns) {
-    const outputJsonSchema = (tool.returns as { toJSONSchema(): Record<string, unknown> }).toJSONSchema();
+    const outputJsonSchema = (
+      tool.returns as { toJSONSchema(): Record<string, unknown> }
+    ).toJSONSchema();
     return {
       ...mcpTool,
       outputSchema: outputJsonSchema,
@@ -70,17 +74,17 @@ function extractInputSchema(jsonSchema: Record<string, unknown>): McpInputSchema
   };
 
   // Ensure we have an object type
-  if (rest.type !== 'object') {
+  if (rest.type !== "object") {
     // Wrap non-object schemas in an object with a single 'input' property
     return {
-      type: 'object',
+      type: "object",
       properties: { input: rest },
-      required: ['input'],
+      required: ["input"],
     };
   }
 
   return {
-    type: 'object',
+    type: "object",
     properties: (rest.properties ?? {}) as Record<string, unknown>,
     required: rest.required,
   };
@@ -90,11 +94,7 @@ function extractInputSchema(jsonSchema: Record<string, unknown>): McpInputSchema
  * Generate TypeScript type hints from MCP tools for code generation
  */
 export function generateMcpTypeHints(tools: readonly McpTool[]): string {
-  const lines: string[] = [
-    '// MCP Tool Types',
-    '// Auto-generated from tool definitions',
-    '',
-  ];
+  const lines: string[] = ["// MCP Tool Types", "// Auto-generated from tool definitions", ""];
 
   // Group tools by server
   const byServer = new Map<string, McpTool[]>();
@@ -110,10 +110,10 @@ export function generateMcpTypeHints(tools: readonly McpTool[]): string {
     for (const tool of serverTools) {
       lines.push(generateToolTypeHint(tool));
     }
-    lines.push('');
+    lines.push("");
   }
 
-  return lines.join('\n');
+  return lines.join("\n");
 }
 
 /**
@@ -121,9 +121,7 @@ export function generateMcpTypeHints(tools: readonly McpTool[]): string {
  */
 function generateToolTypeHint(tool: McpTool): string {
   const params = generateParamsType(tool.inputSchema);
-  const returns = tool.outputSchema
-    ? jsonSchemaToTsType(tool.outputSchema)
-    : 'unknown';
+  const returns = tool.outputSchema ? jsonSchemaToTsType(tool.outputSchema) : "unknown";
 
   return `/**
  * ${tool.description}
@@ -142,12 +140,12 @@ function generateParamsType(schema: McpInputSchema): string {
   const params = Object.entries(props).map(([name, propSchema]) => {
     const isRequired = required.has(name);
     const type = jsonSchemaToTsType(propSchema as Record<string, unknown>);
-    return `${name}${isRequired ? '' : '?'}: ${type}`;
+    return `${name}${isRequired ? "" : "?"}: ${type}`;
   });
 
-  if (params.length === 0) return '';
+  if (params.length === 0) return "";
   if (params.length === 1) return params[0];
-  return `params: { ${params.join('; ')} }`;
+  return `params: { ${params.join("; ")} }`;
 }
 
 /**
@@ -157,41 +155,41 @@ function jsonSchemaToTsType(schema: Record<string, unknown>): string {
   const type = schema.type as string;
 
   switch (type) {
-    case 'string':
+    case "string":
       if (schema.enum) {
-        return (schema.enum as string[]).map((v) => `'${v}'`).join(' | ');
+        return (schema.enum as string[]).map((v) => `'${v}'`).join(" | ");
       }
-      return 'string';
-    case 'number':
-    case 'integer':
-      return 'number';
-    case 'boolean':
-      return 'boolean';
-    case 'array': {
+      return "string";
+    case "number":
+    case "integer":
+      return "number";
+    case "boolean":
+      return "boolean";
+    case "array": {
       const items = schema.items as Record<string, unknown> | undefined;
-      const itemType = items ? jsonSchemaToTsType(items) : 'unknown';
+      const itemType = items ? jsonSchemaToTsType(items) : "unknown";
       return `${itemType}[]`;
     }
-    case 'object': {
+    case "object": {
       const props = schema.properties as Record<string, Record<string, unknown>> | undefined;
-      if (!props) return 'Record<string, unknown>';
+      if (!props) return "Record<string, unknown>";
       const required = new Set((schema.required as string[]) ?? []);
       const entries = Object.entries(props)
         .map(([k, v]) => {
-          const opt = !required.has(k) ? '?' : '';
+          const opt = !required.has(k) ? "?" : "";
           return `${k}${opt}: ${jsonSchemaToTsType(v)}`;
         })
-        .join('; ');
+        .join("; ");
       return `{ ${entries} }`;
     }
-    case 'null':
-      return 'null';
+    case "null":
+      return "null";
     default:
       // Handle union types (anyOf, oneOf)
       if (schema.anyOf || schema.oneOf) {
         const union = (schema.anyOf || schema.oneOf) as Record<string, unknown>[];
-        return union.map((s) => jsonSchemaToTsType(s)).join(' | ');
+        return union.map((s) => jsonSchemaToTsType(s)).join(" | ");
       }
-      return 'unknown';
+      return "unknown";
   }
 }

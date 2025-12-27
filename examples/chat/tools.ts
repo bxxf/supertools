@@ -1,5 +1,5 @@
 import { defineTool, z } from "@supertools-ai/core";
-import { users, orders } from "./db";
+import { orders, users } from "./db";
 
 // =============================================================================
 // Simple tools for chat example
@@ -12,8 +12,7 @@ export const tools = [
     parameters: z.object({
       role: z.enum(["admin", "user"]).optional().describe("Filter by role"),
     }),
-    execute: async ({ role }) =>
-      role ? users.filter((u) => u.role === role) : users,
+    execute: async ({ role }) => (role ? users.filter((u) => u.role === role) : users),
   }),
 
   defineTool({
@@ -30,5 +29,4 @@ export const tools = [
       return result;
     },
   }),
-
 ];

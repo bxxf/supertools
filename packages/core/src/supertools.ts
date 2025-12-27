@@ -32,11 +32,11 @@
  * ```
  */
 
-import type { Sandbox } from 'e2b';
-import type { AnyTool } from './tool';
-import type { ExecutionEvent } from './types';
-import { isAnthropicClient, wrapAnthropicClient } from './providers/anthropic';
-import { ConfigurationError } from './utils/errors';
+import type { Sandbox } from "e2b";
+import { isAnthropicClient, wrapAnthropicClient } from "./providers/anthropic";
+import type { AnyTool } from "./tool";
+import type { ExecutionEvent } from "./types";
+import { ConfigurationError } from "./utils/errors";
 
 /**
  * Configuration options for supertools
@@ -57,14 +57,14 @@ export interface SupertoolsConfig {
 /**
  * Supported provider types
  */
-export type SupportedProvider = 'anthropic';
+export type SupportedProvider = "anthropic";
 
 /**
  * Detect the provider type from a client instance
  */
 export function detectProvider(client: unknown): SupportedProvider | null {
   if (isAnthropicClient(client)) {
-    return 'anthropic';
+    return "anthropic";
   }
   return null;
 }
@@ -102,21 +102,21 @@ export function supertools<T>(client: T, config: SupertoolsConfig): T {
 
   if (!provider) {
     throw new ConfigurationError(
-      'Unsupported LLM client. Currently supported: Anthropic SDK. ' +
-        'OpenAI and AI SDK support coming soon.'
+      "Unsupported LLM client. Currently supported: Anthropic SDK. " +
+        "OpenAI and AI SDK support coming soon."
     );
   }
 
   if (!config.tools || !Array.isArray(config.tools)) {
-    throw new ConfigurationError('tools must be an array of Tool definitions');
+    throw new ConfigurationError("tools must be an array of Tool definitions");
   }
 
   if (!config.sandbox) {
-    throw new ConfigurationError('sandbox is required - create one with Sandbox.create()');
+    throw new ConfigurationError("sandbox is required - create one with Sandbox.create()");
   }
 
   switch (provider) {
-    case 'anthropic':
+    case "anthropic":
       // Type is already validated by detectProvider
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       return wrapAnthropicClient(client as any, config.tools, config) as T;
